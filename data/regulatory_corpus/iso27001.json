@@ -1,0 +1,82 @@
+[
+  {
+    "id": "ISO-A5-1",
+    "source": "ISO27001",
+    "article": "A.5.1",
+    "title": "Policies for information security",
+    "text": "A set of policies for information security shall be defined, approved by management, published and communicated to employees and relevant external parties.",
+    "tags": ["governance"]
+  },
+  {
+    "id": "ISO-A5-15",
+    "source": "ISO27001",
+    "article": "A.5.15",
+    "title": "Access control",
+    "text": "Rules to control physical and logical access to information and other associated assets shall be established and implemented based on business and information security requirements.",
+    "tags": ["access_control"]
+  },
+  {
+    "id": "ISO-A5-23",
+    "source": "ISO27001",
+    "article": "A.5.23",
+    "title": "Information security for use of cloud services",
+    "text": "Processes for acquisition, use, management and exit from cloud services shall be established in accordance with the organisation's information security requirements.",
+    "tags": ["cloud", "third_party"]
+  },
+  {
+    "id": "ISO-A5-34",
+    "source": "ISO27001",
+    "article": "A.5.34",
+    "title": "Privacy and protection of PII",
+    "text": "The organisation shall identify and meet the requirements regarding the preservation of privacy and protection of personally identifiable information according to applicable laws and regulations and contractual requirements.",
+    "tags": ["privacy", "data_processing"]
+  },
+  {
+    "id": "ISO-A8-1-3",
+    "source": "ISO27001",
+    "article": "A.8.1.3",
+    "title": "Acceptable use of assets",
+    "text": "Rules for the acceptable use of information and other associated assets shall be identified, documented and implemented.",
+    "tags": ["access_control"]
+  },
+  {
+    "id": "ISO-A8-24",
+    "source": "ISO27001",
+    "article": "A.8.24",
+    "title": "Use of cryptography",
+    "text": "Rules for the effective use of cryptography, including cryptographic key management, shall be defined and implemented.",
+    "tags": ["security", "encryption"]
+  },
+  {
+    "id": "ISO-A8-28",
+    "source": "ISO27001",
+    "article": "A.8.28",
+    "title": "Secure coding",
+    "text": "Secure coding principles shall be applied to software development to reduce the number of potential information security vulnerabilities.",
+    "tags": ["security"]
+  },
+  {
+    "id": "ISO-A9-1",
+    "source": "ISO27001",
+    "article": "A.9.1",
+    "title": "Business continuity",
+    "text": "The organisation shall plan, implement, maintain and test processes, procedures and controls to ensure the required level of continuity for information security during disruption.",
+    "tags": ["continuity"]
+  },
+  {
+    "id": "ISO-A12-3",
+    "source": "ISO27001",
+    "article": "A.12.3",
+    "title": "Backup",
+    "text": "Backup copies of information, software and systems shall be maintained and regularly tested in accordance with an agreed topic-specific policy on backup.",
+    "tags": ["continuity", "backup"]
+  },
+  {
+    "id": "ISO-A15-1",
+    "source": "ISO27001",
+    "article": "A.15.1",
+    "title": "Information security in supplier relationships",
+    "text": "Information security requirements for mitigating the risks associated with supplier's access to the organisation's assets shall be agreed with the supplier and documented.",
+    "tags": ["third_party", "supplier"]
+  }
+]

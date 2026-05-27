@@ -1,0 +1,96 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Design tokens synced from Figma Make (Enterprise SaaS Dashboard)
+ * Source: theme.css — primary #003B5C, accent #86BC25, base 15px Inter
+ */
+@layer base {
+  :root {
+    --font-size: 15px;
+
+    --background: 210 17% 98%; /* #F8F9FA */
+    --foreground: 205 54% 11%; /* #0D1F2D */
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 13% 11%; /* #111827 */
+
+    --primary: 203 100% 18%; /* #003B5C navy */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 210 17% 94%; /* #EEF1F4 */
+    --secondary-foreground: 203 100% 18%;
+
+    --muted: 210 17% 94%;
+    --muted-foreground: 213 11% 49%; /* #6B7A8D */
+
+    --accent: 80 67% 44%; /* #86BC25 green */
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%; /* #EF4444 */
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 14% 90%; /* ≈ rgba(0,0,0,0.07) on white */
+    --input: 220 14% 90%;
+    --ring: 203 100% 18%;
+
+    --table-header: 210 17% 98%; /* #F8F9FA */
+    --table-row-border: 220 14% 94%; /* ≈ rgba(0,0,0,0.05) */
+
+    --sidebar: 203 100% 18%;
+    --sidebar-foreground: 0 0% 100%;
+    --sidebar-primary: 80 67% 44%;
+    --sidebar-accent: 80 67% 44% / 0.14;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222 47% 8%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 10%;
+    --card-foreground: 210 40% 98%;
+    --primary: 210 40% 98%;
+    --primary-foreground: 203 100% 18%;
+    --secondary: 217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 80 67% 44%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 63% 45%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 17%;
+    --input: 217 33% 17%;
+    --ring: 213 27% 84%;
+    --table-header: 217 33% 14%;
+    --table-row-border: 217 33% 20%;
+  }
+}
+
+@layer base {
+  html {
+    font-size: var(--font-size);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@keyframes chat-bounce {
+  0%, 60%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-4px); }
+}
+
+.chat-dot {
+  animation: chat-bounce 1.2s ease-in-out infinite;
+}
+.chat-dot:nth-child(2) { animation-delay: 0.2s; }
+.chat-dot:nth-child(3) { animation-delay: 0.4s; }

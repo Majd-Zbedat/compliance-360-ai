@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "auditor-schemas"
+version = "0.1.0"
+description = "Shared Pydantic schemas for the Regulatory Document Auditor"
+requires-python = ">=3.10"
+dependencies = ["pydantic>=2.5"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

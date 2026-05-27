@@ -1,0 +1,28 @@
+# NeMo Guardrails config skeleton. Wire in when migrating beyond the
+# rule-based Python rails. Documented at https://docs.nvidia.com/nemo/guardrails.
+
+models:
+  - type: main
+    engine: openai
+    model: gpt-4o-mini
+
+rails:
+  input:
+    flows:
+      - input topic check
+      - legal advice refusal
+  output:
+    flows:
+      - output legal safety check
+
+prompts:
+  - task: topic_detection
+    content: |
+      Decide if the user input is a legal contract excerpt suitable for compliance audit.
+      Answer "yes" or "no" only.
+
+  - task: output_legal_advice_check
+    content: |
+      Decide if the candidate audit report contains unqualified legal advice
+      (imperative directives, definitive legality statements, or fabricated case citations).
+      Return strict JSON: {"passed": bool, "reason": string, "safe_text": string}.

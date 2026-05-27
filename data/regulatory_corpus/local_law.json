@@ -1,0 +1,66 @@
+[
+  {
+    "id": "LL-PPL-1",
+    "source": "LocalLaw",
+    "article": "Privacy Protection Law - 8",
+    "title": "Database registration",
+    "text": "A controller maintaining a database that contains information about more than 10,000 persons, or contains sensitive information, shall register the database with the Registrar of Databases.",
+    "tags": ["registration", "data_processing"]
+  },
+  {
+    "id": "LL-PPL-2",
+    "source": "LocalLaw",
+    "article": "Privacy Protection Law - 11",
+    "title": "Right of access",
+    "text": "Every person is entitled to inspect information held about themselves in a database, and to request correction of inaccurate or incomplete information.",
+    "tags": ["data_subject_rights"]
+  },
+  {
+    "id": "LL-EMP-1",
+    "source": "LocalLaw",
+    "article": "Employment Contracts - 6",
+    "title": "Mandatory termination notice",
+    "text": "An employer terminating an employee with more than 12 months of service shall provide written notice no less than 30 days before the termination date.",
+    "tags": ["termination", "employment"]
+  },
+  {
+    "id": "LL-CON-1",
+    "source": "LocalLaw",
+    "article": "Contract Law - 39",
+    "title": "Good faith",
+    "text": "Parties to a contract shall act in good faith and in customary manner in performance of an obligation arising from a contract.",
+    "tags": ["governing_law"]
+  },
+  {
+    "id": "LL-CON-2",
+    "source": "LocalLaw",
+    "article": "Contract Law - 23",
+    "title": "Unconscionable terms",
+    "text": "A standard form contract term that is unconscionably disadvantageous to the customer, considering all the circumstances, may be struck out by a court.",
+    "tags": ["unconscionable", "consumer_protection"]
+  },
+  {
+    "id": "LL-CON-3",
+    "source": "LocalLaw",
+    "article": "Commercial Code - 88",
+    "title": "Limitation of liability cap",
+    "text": "A clause that limits the liability of a party for damages caused by gross negligence or wilful misconduct shall be void.",
+    "tags": ["liability"]
+  },
+  {
+    "id": "LL-CON-4",
+    "source": "LocalLaw",
+    "article": "Consumer Protection Act - 4",
+    "title": "Unilateral amendment prohibition",
+    "text": "A standard contract may not authorise the supplier to unilaterally amend material terms, including price, without the customer's renewed consent.",
+    "tags": ["consumer_protection"]
+  },
+  {
+    "id": "LL-CON-5",
+    "source": "LocalLaw",
+    "article": "Civil Wrongs Ordinance - 5",
+    "title": "Indemnification limits",
+    "text": "An indemnification obligation in a commercial contract is enforceable only to the extent that the indemnified party would itself have been liable to the third party.",
+    "tags": ["indemnity"]
+  }
+]

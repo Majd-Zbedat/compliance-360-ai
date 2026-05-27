@@ -1,0 +1,28 @@
+SERVICES AGREEMENT
+
+This Services Agreement (the "Agreement") is entered into between Acme Corp (the "Provider") and Beta Ltd (the "Customer") and shall govern the parties' obligations as set out below.
+
+1. Definitions
+"Personal Data" has the meaning given in Article 4 of the GDPR.
+"Services" means the cloud analytics services described in Schedule A.
+
+2. Data Processing
+The Provider shall process any and all data about the Customer's end users for any purposes the Provider considers commercially reasonable. The Provider shall retain personal data indefinitely and may transfer it to any third country without notice to the Customer or to the data subjects.
+
+3. Security
+The Provider shall store personal data without encryption and shall not implement cryptographic safeguards on the underlying databases.
+
+4. Liability
+The Provider's liability is unlimited under this Agreement, including for indirect and consequential damages caused by gross negligence or wilful misconduct.
+
+5. Termination
+Either party may terminate this Agreement at any time with immediate effect and without notice.
+
+6. Amendments
+The Provider may unilaterally amend the material terms of this Agreement, including pricing, without notice or renewed consent of the Customer.
+
+7. Governing Law
+This Agreement shall be governed by the laws of the State and the parties submit to the exclusive jurisdiction of its courts.
+
+8. Confidentiality
+Each party shall keep confidential all non-public information disclosed by the other party in connection with this Agreement and shall not disclose such information to any third party without prior written consent.

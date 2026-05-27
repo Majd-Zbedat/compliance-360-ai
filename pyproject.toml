@@ -1,0 +1,14 @@
+[project]
+name = "regulatory-document-auditor"
+version = "0.1.0"
+description = "AI-Native Regulatory Document Auditor - Compliance 360 control tower"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["services", "shared"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

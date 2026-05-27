@@ -1,0 +1,39 @@
+# NeMo Guardrails (Colang) skeleton for the Regulatory Document Auditor.
+# Loaded by NeMo Guardrails when the service is upgraded beyond the
+# rule-based fallback. Mirrors the rule names used by `rails.py` so the
+# audit log surfaces the same `matched_rules` regardless of implementation.
+
+define user express off topic
+    "buy now"
+    "free download"
+    "follow me on"
+
+define bot refuse off topic
+    "I can only analyse legal contracts. The submitted text does not appear to be a contract."
+
+define flow input topic check
+    user express off topic
+    bot refuse off topic
+    stop
+
+define user request legal advice
+    "tell me what to do"
+    "give me legal advice"
+    "is this legal?"
+
+define bot explain we do analysis only
+    "This system performs compliance *analysis* against the regulatory corpus. It does not provide legal advice; please consult qualified counsel for advice."
+
+define flow legal advice refusal
+    user request legal advice
+    bot explain we do analysis only
+    stop
+
+# Output rail: the auditor pipeline calls this rail explicitly with the
+# generated report. We forbid imperative directives and fabricated cites.
+define bot rewrite unqualified advice
+    "I rewrote the report to remove imperative directives and unverified citations."
+
+define flow output legal safety check
+    bot rewrite unqualified advice
+    stop
