@@ -1,0 +1,90 @@
+[
+  {
+    "id": "PCI-1-1",
+    "source": "PCI_DSS",
+    "article": "Req. 1.1",
+    "title": "Network security controls",
+    "text": "Processes and mechanisms for installing and maintaining network security controls shall be defined and understood.",
+    "tags": [
+      "network_security",
+      "governance"
+    ]
+  },
+  {
+    "id": "PCI-3-2",
+    "source": "PCI_DSS",
+    "article": "Req. 3.2",
+    "title": "Protect stored account data",
+    "text": "Primary account numbers and sensitive authentication data shall be protected when stored, including use of strong cryptography and access controls.",
+    "tags": [
+      "encryption",
+      "data_protection"
+    ]
+  },
+  {
+    "id": "PCI-3-3",
+    "source": "PCI_DSS",
+    "article": "Req. 3.3",
+    "title": "Mask PAN when displayed",
+    "text": "The PAN shall be masked when displayed so only those with a legitimate business need can see more than the first six and last four digits.",
+    "tags": [
+      "data_minimization",
+      "access_control"
+    ]
+  },
+  {
+    "id": "PCI-4-2",
+    "source": "PCI_DSS",
+    "article": "Req. 4.2",
+    "title": "Encrypt transmission of cardholder data",
+    "text": "Strong cryptography and security protocols shall be used to safeguard sensitive cardholder data during transmission over open, public networks.",
+    "tags": [
+      "encryption",
+      "transmission"
+    ]
+  },
+  {
+    "id": "PCI-7-1",
+    "source": "PCI_DSS",
+    "article": "Req. 7.1",
+    "title": "Restrict access by need-to-know",
+    "text": "Access to system components and cardholder data shall be limited to only those individuals whose job requires such access.",
+    "tags": [
+      "access_control",
+      "least_privilege"
+    ]
+  },
+  {
+    "id": "PCI-8-3",
+    "source": "PCI_DSS",
+    "article": "Req. 8.3",
+    "title": "Strong authentication",
+    "text": "Strong user authentication shall be implemented for all access into the cardholder data environment, including multi-factor authentication where required.",
+    "tags": [
+      "authentication",
+      "mfa"
+    ]
+  },
+  {
+    "id": "PCI-10-2",
+    "source": "PCI_DSS",
+    "article": "Req. 10.2",
+    "title": "Audit logging",
+    "text": "Automated audit trails shall be implemented to reconstruct events, including user access, administrative actions, and invalid logical access attempts.",
+    "tags": [
+      "logging",
+      "monitoring"
+    ]
+  },
+  {
+    "id": "PCI-12-10",
+    "source": "PCI_DSS",
+    "article": "Req. 12.10",
+    "title": "Incident response plan",
+    "text": "An incident response plan shall be established and maintained to respond immediately to a system breach, including communication and recovery procedures.",
+    "tags": [
+      "incident_response",
+      "breach_notification"
+    ]
+  }
+]

@@ -1,0 +1,90 @@
+[
+  {
+    "id": "NIST-ID-AM-1",
+    "source": "NIST_CSF",
+    "article": "ID.AM",
+    "title": "Asset management",
+    "text": "Physical devices, software platforms, and data flows shall be inventoried and managed consistent with business and risk objectives.",
+    "tags": [
+      "asset_management",
+      "governance"
+    ]
+  },
+  {
+    "id": "NIST-ID-RA-1",
+    "source": "NIST_CSF",
+    "article": "ID.RA",
+    "title": "Risk assessment",
+    "text": "The organization shall identify cybersecurity risks to systems, assets, data, and capabilities, including threat and vulnerability analysis.",
+    "tags": [
+      "risk_assessment",
+      "governance"
+    ]
+  },
+  {
+    "id": "NIST-PR-AC-1",
+    "source": "NIST_CSF",
+    "article": "PR.AC",
+    "title": "Identity and access management",
+    "text": "Access to assets and associated facilities shall be limited to authorized users, processes, or devices and managed according to risk.",
+    "tags": [
+      "access_control",
+      "least_privilege"
+    ]
+  },
+  {
+    "id": "NIST-PR-DS-1",
+    "source": "NIST_CSF",
+    "article": "PR.DS",
+    "title": "Data security",
+    "text": "Information and records shall be managed consistent with risk strategy to protect confidentiality, integrity, and availability.",
+    "tags": [
+      "data_protection",
+      "cia"
+    ]
+  },
+  {
+    "id": "NIST-DE-CM-1",
+    "source": "NIST_CSF",
+    "article": "DE.CM",
+    "title": "Continuous monitoring",
+    "text": "Networks and systems shall be monitored to detect potential cybersecurity events and anomalous activity in a timely manner.",
+    "tags": [
+      "monitoring",
+      "detection"
+    ]
+  },
+  {
+    "id": "NIST-RS-RP-1",
+    "source": "NIST_CSF",
+    "article": "RS.RP",
+    "title": "Response planning",
+    "text": "Response processes and procedures shall be executed and maintained to ensure timely and effective response to detected incidents.",
+    "tags": [
+      "incident_response",
+      "governance"
+    ]
+  },
+  {
+    "id": "NIST-RC-RP-1",
+    "source": "NIST_CSF",
+    "article": "RC.RP",
+    "title": "Recovery planning",
+    "text": "Recovery processes and procedures shall be executed and maintained to restore systems and services impacted by cybersecurity incidents.",
+    "tags": [
+      "recovery",
+      "continuity"
+    ]
+  },
+  {
+    "id": "NIST-GV-OV-1",
+    "source": "NIST_CSF",
+    "article": "GV.OV",
+    "title": "Cyber governance oversight",
+    "text": "Cybersecurity governance, responsibilities, and oversight mechanisms shall be defined and integrated with enterprise risk management.",
+    "tags": [
+      "governance",
+      "oversight"
+    ]
+  }
+]

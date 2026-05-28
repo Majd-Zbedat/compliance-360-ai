@@ -1,0 +1,90 @@
+[
+  {
+    "id": "AMLKYC-CIP-1",
+    "source": "AML_KYC",
+    "article": "CIP",
+    "title": "Customer identification program",
+    "text": "Institutions shall implement a customer identification program that verifies customer identity using reliable, independent source documents, data, or information.",
+    "tags": [
+      "kyc",
+      "identity_verification"
+    ]
+  },
+  {
+    "id": "AMLKYC-CDD-1",
+    "source": "AML_KYC",
+    "article": "CDD",
+    "title": "Customer due diligence",
+    "text": "Financial institutions shall understand the nature and purpose of customer relationships to develop a customer risk profile and conduct ongoing monitoring.",
+    "tags": [
+      "kyc",
+      "risk_assessment"
+    ]
+  },
+  {
+    "id": "AMLKYC-EDD-1",
+    "source": "AML_KYC",
+    "article": "EDD",
+    "title": "Enhanced due diligence",
+    "text": "Enhanced due diligence measures shall be applied to higher-risk customers and transactions, including politically exposed persons and high-risk jurisdictions.",
+    "tags": [
+      "enhanced_due_diligence",
+      "high_risk"
+    ]
+  },
+  {
+    "id": "AMLKYC-SAR-1",
+    "source": "AML_KYC",
+    "article": "SAR",
+    "title": "Suspicious activity reporting",
+    "text": "Suspicious transactions shall be promptly investigated and reported to the competent authority when statutory reporting thresholds or indicators are met.",
+    "tags": [
+      "suspicious_activity",
+      "reporting"
+    ]
+  },
+  {
+    "id": "AMLKYC-SAN-1",
+    "source": "AML_KYC",
+    "article": "Sanctions",
+    "title": "Sanctions screening",
+    "text": "Customers, counterparties, and transactions shall be screened against applicable sanctions lists before onboarding and on an ongoing basis.",
+    "tags": [
+      "sanctions",
+      "screening"
+    ]
+  },
+  {
+    "id": "AMLKYC-TRN-1",
+    "source": "AML_KYC",
+    "article": "Training",
+    "title": "AML training",
+    "text": "Relevant personnel shall receive periodic AML/KYC training tailored to their roles, including detection of suspicious behavior and escalation procedures.",
+    "tags": [
+      "training",
+      "governance"
+    ]
+  },
+  {
+    "id": "AMLKYC-REC-1",
+    "source": "AML_KYC",
+    "article": "Recordkeeping",
+    "title": "Retention of KYC records",
+    "text": "Customer identification and transaction records shall be retained for the minimum legal retention period and be readily retrievable for audit and investigations.",
+    "tags": [
+      "retention",
+      "recordkeeping"
+    ]
+  },
+  {
+    "id": "AMLKYC-GOV-1",
+    "source": "AML_KYC",
+    "article": "Governance",
+    "title": "Independent AML testing",
+    "text": "The AML compliance program shall be independently tested on a periodic basis, with deficiencies documented and remediated in a timely manner.",
+    "tags": [
+      "audit",
+      "governance"
+    ]
+  }
+]

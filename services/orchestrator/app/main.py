@@ -1,4 +1,8 @@
-"""Orchestrator service - Layer 2 (n8n flow stand-in).
+"""Orchestrator service - UI API + audit persistence.
+
+When ``N8N_WEBHOOK_URL`` is set, ``POST /audits`` forwards to the n8n
+compliance-audit webhook (Layer 2) and persists the response. Otherwise the
+in-process Python pipeline (``pipeline.run_pipeline``) is used as a fallback.
 
 Endpoints (all return JSON consumed by the Next.js dashboard):
 
@@ -22,6 +26,7 @@ from sqlalchemy import desc
 from .config import settings
 from .corpus import load_corpus
 from .db import AuditRow, init_db, row_to_dict, session_scope
+from .n8n_pipeline import run_n8n_pipeline
 from .pipeline import run_pipeline
 from .schemas import (
     AuditCreateRequest,
@@ -60,9 +65,12 @@ def _startup() -> None:
 
 @app.get("/healthz")
 def healthz() -> dict:
+    n8n_url = (settings.n8n_webhook_url or "").strip()
     return {
         "status": "ok",
         "service": settings.service_name,
+        "pipeline_driver": "n8n" if n8n_url else "python",
+        "n8n_webhook_url": n8n_url or None,
         "downstream": {
             "rag": settings.rag_service_url,
             "doc_analyzer": settings.doc_analyzer_service_url,
@@ -82,7 +90,10 @@ async def create_audit(req: AuditCreateRequest) -> dict:
     if not req.document_b64:
         raise HTTPException(status_code=400, detail="document_b64 required")
     try:
-        result = await run_pipeline(req)
+        if (settings.n8n_webhook_url or "").strip():
+            result = await run_n8n_pipeline(req)
+        else:
+            result = await run_pipeline(req)
     except HTTPException:
         raise
     except Exception as exc:

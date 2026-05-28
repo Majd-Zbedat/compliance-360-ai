@@ -1,0 +1,90 @@
+[
+  {
+    "id": "SOX-302-1",
+    "source": "SOX",
+    "article": "Sec. 302",
+    "title": "Executive certification of periodic reports",
+    "text": "The principal executive and financial officers shall certify each quarterly and annual report, including that they reviewed the report and that it does not contain untrue statements of material fact.",
+    "tags": [
+      "reporting",
+      "governance"
+    ]
+  },
+  {
+    "id": "SOX-302-2",
+    "source": "SOX",
+    "article": "Sec. 302",
+    "title": "Disclosure controls and procedures",
+    "text": "Certifying officers shall be responsible for establishing and maintaining disclosure controls and procedures designed to ensure material information is made known to management in a timely manner.",
+    "tags": [
+      "internal_controls",
+      "disclosure"
+    ]
+  },
+  {
+    "id": "SOX-404-1",
+    "source": "SOX",
+    "article": "Sec. 404(a)",
+    "title": "Management assessment of internal controls",
+    "text": "Each annual report shall include an internal control report stating management's responsibility for establishing and maintaining adequate internal control over financial reporting.",
+    "tags": [
+      "internal_controls",
+      "financial_reporting"
+    ]
+  },
+  {
+    "id": "SOX-404-2",
+    "source": "SOX",
+    "article": "Sec. 404(b)",
+    "title": "External auditor attestation",
+    "text": "The registered public accounting firm that prepares or issues the audit report shall attest to, and report on, management's assessment of internal controls.",
+    "tags": [
+      "audit",
+      "attestation"
+    ]
+  },
+  {
+    "id": "SOX-409-1",
+    "source": "SOX",
+    "article": "Sec. 409",
+    "title": "Real-time issuer disclosures",
+    "text": "Issuers shall disclose to the public on a rapid and current basis such additional information concerning material changes in financial condition or operations.",
+    "tags": [
+      "disclosure",
+      "timeliness"
+    ]
+  },
+  {
+    "id": "SOX-802-1",
+    "source": "SOX",
+    "article": "Sec. 802",
+    "title": "Records retention",
+    "text": "Audit or review workpapers and related records shall be retained for not less than seven years in accordance with applicable requirements.",
+    "tags": [
+      "retention",
+      "audit"
+    ]
+  },
+  {
+    "id": "SOX-806-1",
+    "source": "SOX",
+    "article": "Sec. 806",
+    "title": "Whistleblower protection",
+    "text": "Companies shall not discharge, demote, suspend, threaten, or discriminate against employees who lawfully provide information regarding fraud against shareholders.",
+    "tags": [
+      "ethics",
+      "governance"
+    ]
+  },
+  {
+    "id": "SOX-1102-1",
+    "source": "SOX",
+    "article": "Sec. 1102",
+    "title": "Tampering with records",
+    "text": "Altering, destroying, mutilating, or concealing records with the intent to impair their integrity or availability for use in an official proceeding is prohibited.",
+    "tags": [
+      "integrity",
+      "records"
+    ]
+  }
+]

@@ -1,0 +1,90 @@
+[
+  {
+    "id": "BASEL3-CET1-1",
+    "source": "BASEL_III",
+    "article": "Capital",
+    "title": "Minimum CET1 requirement",
+    "text": "Banks shall maintain a Common Equity Tier 1 capital ratio at or above the minimum regulatory threshold and internal risk appetite limits.",
+    "tags": [
+      "capital",
+      "prudential"
+    ]
+  },
+  {
+    "id": "BASEL3-TIER1-1",
+    "source": "BASEL_III",
+    "article": "Capital",
+    "title": "Tier 1 and total capital",
+    "text": "Banks shall maintain Tier 1 and total capital ratios that meet or exceed minimum requirements after applying supervisory adjustments.",
+    "tags": [
+      "capital",
+      "prudential"
+    ]
+  },
+  {
+    "id": "BASEL3-LCR-1",
+    "source": "BASEL_III",
+    "article": "Liquidity",
+    "title": "Liquidity Coverage Ratio",
+    "text": "Banks shall hold sufficient high-quality liquid assets to survive a stressed 30-day funding scenario as measured by the LCR.",
+    "tags": [
+      "liquidity",
+      "risk_management"
+    ]
+  },
+  {
+    "id": "BASEL3-NSFR-1",
+    "source": "BASEL_III",
+    "article": "Liquidity",
+    "title": "Net Stable Funding Ratio",
+    "text": "Banks shall maintain a stable funding profile in relation to the composition of assets and off-balance sheet activities over a one-year horizon.",
+    "tags": [
+      "liquidity",
+      "funding"
+    ]
+  },
+  {
+    "id": "BASEL3-LEVERAGE-1",
+    "source": "BASEL_III",
+    "article": "Leverage",
+    "title": "Leverage ratio",
+    "text": "Banks shall calculate and disclose a leverage ratio to constrain the build-up of excessive leverage in the banking system.",
+    "tags": [
+      "leverage",
+      "disclosure"
+    ]
+  },
+  {
+    "id": "BASEL3-RWA-1",
+    "source": "BASEL_III",
+    "article": "Risk-weighted assets",
+    "title": "RWA integrity",
+    "text": "Methodologies for calculating risk-weighted assets shall be robust, documented, and subject to model governance and independent validation.",
+    "tags": [
+      "model_risk",
+      "governance"
+    ]
+  },
+  {
+    "id": "BASEL3-STRESS-1",
+    "source": "BASEL_III",
+    "article": "Supervision",
+    "title": "Stress testing",
+    "text": "Banks shall perform periodic stress testing to evaluate resilience under adverse economic scenarios and inform capital planning.",
+    "tags": [
+      "stress_testing",
+      "risk_management"
+    ]
+  },
+  {
+    "id": "BASEL3-PILLAR3-1",
+    "source": "BASEL_III",
+    "article": "Pillar 3",
+    "title": "Market discipline disclosures",
+    "text": "Banks shall provide timely and consistent public disclosures on risk profile, capital adequacy, and risk management practices.",
+    "tags": [
+      "disclosure",
+      "transparency"
+    ]
+  }
+]

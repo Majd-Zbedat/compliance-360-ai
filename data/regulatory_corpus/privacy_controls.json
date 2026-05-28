@@ -1,0 +1,90 @@
+[
+  {
+    "id": "PRIV-01",
+    "source": "PrivacyControls",
+    "article": "PC-01",
+    "title": "Data inventory and mapping",
+    "text": "Organizations shall maintain an up-to-date inventory of personal data processing activities, including purposes, legal basis, recipients, and storage locations.",
+    "tags": [
+      "privacy",
+      "data_inventory"
+    ]
+  },
+  {
+    "id": "PRIV-02",
+    "source": "PrivacyControls",
+    "article": "PC-02",
+    "title": "Purpose and use limitation",
+    "text": "Personal data shall only be used for documented and legitimate purposes communicated to data subjects and reflected in contract terms.",
+    "tags": [
+      "purpose_limitation",
+      "privacy"
+    ]
+  },
+  {
+    "id": "PRIV-03",
+    "source": "PrivacyControls",
+    "article": "PC-03",
+    "title": "Retention and deletion",
+    "text": "Contracts shall define retention periods and secure deletion procedures, including deletion on termination and deletion verification where feasible.",
+    "tags": [
+      "retention",
+      "deletion"
+    ]
+  },
+  {
+    "id": "PRIV-04",
+    "source": "PrivacyControls",
+    "article": "PC-04",
+    "title": "Subprocessor management",
+    "text": "Processors shall not engage subprocessors without prior authorization and shall impose equivalent privacy and security obligations by written contract.",
+    "tags": [
+      "subprocessors",
+      "third_party"
+    ]
+  },
+  {
+    "id": "PRIV-05",
+    "source": "PrivacyControls",
+    "article": "PC-05",
+    "title": "Data subject rights support",
+    "text": "Service providers shall implement procedures to support access, correction, deletion, portability, and objection requests within statutory timelines.",
+    "tags": [
+      "data_subject_rights",
+      "privacy"
+    ]
+  },
+  {
+    "id": "PRIV-06",
+    "source": "PrivacyControls",
+    "article": "PC-06",
+    "title": "Breach notification obligations",
+    "text": "Data processors shall notify controllers without undue delay after becoming aware of a personal data breach and provide sufficient incident details.",
+    "tags": [
+      "breach_notification",
+      "incident_response"
+    ]
+  },
+  {
+    "id": "PRIV-07",
+    "source": "PrivacyControls",
+    "article": "PC-07",
+    "title": "Cross-border transfer safeguards",
+    "text": "Transfers of personal data across jurisdictions shall rely on valid legal transfer mechanisms and supplementary safeguards where required.",
+    "tags": [
+      "international_transfer",
+      "privacy"
+    ]
+  },
+  {
+    "id": "PRIV-08",
+    "source": "PrivacyControls",
+    "article": "PC-08",
+    "title": "Privacy by design",
+    "text": "Privacy controls shall be integrated into system and process design, including minimization, pseudonymization, and least-privilege access.",
+    "tags": [
+      "privacy_by_design",
+      "minimisation"
+    ]
+  }
+]

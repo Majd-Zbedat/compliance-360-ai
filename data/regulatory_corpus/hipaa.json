@@ -1,0 +1,90 @@
+[
+  {
+    "id": "HIPAA-164-308-a1",
+    "source": "HIPAA",
+    "article": "45 CFR 164.308(a)(1)",
+    "title": "Security management process",
+    "text": "Covered entities and business associates shall implement policies and procedures to prevent, detect, contain, and correct security violations.",
+    "tags": [
+      "security",
+      "risk_management"
+    ]
+  },
+  {
+    "id": "HIPAA-164-308-a3",
+    "source": "HIPAA",
+    "article": "45 CFR 164.308(a)(3)",
+    "title": "Workforce security",
+    "text": "Workforce members shall have appropriate access to electronic protected health information (ePHI), and access shall be prevented for unauthorized persons.",
+    "tags": [
+      "access_control",
+      "workforce"
+    ]
+  },
+  {
+    "id": "HIPAA-164-308-a4",
+    "source": "HIPAA",
+    "article": "45 CFR 164.308(a)(4)",
+    "title": "Information access management",
+    "text": "Policies and procedures shall be implemented for authorizing access to ePHI consistent with minimum necessary principles.",
+    "tags": [
+      "access_control",
+      "minimum_necessary"
+    ]
+  },
+  {
+    "id": "HIPAA-164-308-a5",
+    "source": "HIPAA",
+    "article": "45 CFR 164.308(a)(5)",
+    "title": "Security awareness and training",
+    "text": "A security awareness and training program shall be implemented for all workforce members, including phishing and incident reporting awareness.",
+    "tags": [
+      "training",
+      "awareness"
+    ]
+  },
+  {
+    "id": "HIPAA-164-308-a6",
+    "source": "HIPAA",
+    "article": "45 CFR 164.308(a)(6)",
+    "title": "Security incident procedures",
+    "text": "Policies and procedures shall address security incidents, including response, mitigation, and documentation of outcomes.",
+    "tags": [
+      "incident_response",
+      "documentation"
+    ]
+  },
+  {
+    "id": "HIPAA-164-310-a1",
+    "source": "HIPAA",
+    "article": "45 CFR 164.310(a)(1)",
+    "title": "Facility access controls",
+    "text": "Physical access to facilities and workstations containing ePHI shall be limited and safeguarded through appropriate controls.",
+    "tags": [
+      "physical_security",
+      "access_control"
+    ]
+  },
+  {
+    "id": "HIPAA-164-312-a2",
+    "source": "HIPAA",
+    "article": "45 CFR 164.312(a)(2)",
+    "title": "Unique user identification",
+    "text": "A unique name or number for identifying and tracking user identity shall be assigned for access to ePHI systems.",
+    "tags": [
+      "identity",
+      "auditability"
+    ]
+  },
+  {
+    "id": "HIPAA-164-312-e1",
+    "source": "HIPAA",
+    "article": "45 CFR 164.312(e)(1)",
+    "title": "Transmission security",
+    "text": "Technical security measures shall be implemented to guard against unauthorized access to ePHI transmitted over electronic communications networks.",
+    "tags": [
+      "encryption",
+      "transmission"
+    ]
+  }
+]

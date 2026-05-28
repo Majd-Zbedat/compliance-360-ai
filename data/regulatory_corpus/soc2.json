@@ -1,0 +1,90 @@
+[
+  {
+    "id": "SOC2-CC1-1",
+    "source": "SOC2",
+    "article": "CC1.1",
+    "title": "Control environment",
+    "text": "The entity shall demonstrate commitment to integrity and ethical values as part of the control environment supporting trust services criteria.",
+    "tags": [
+      "governance",
+      "ethics"
+    ]
+  },
+  {
+    "id": "SOC2-CC2-1",
+    "source": "SOC2",
+    "article": "CC2.1",
+    "title": "Board oversight",
+    "text": "The board of directors shall exercise oversight of internal control, including cybersecurity and information security risk governance.",
+    "tags": [
+      "oversight",
+      "governance"
+    ]
+  },
+  {
+    "id": "SOC2-CC3-1",
+    "source": "SOC2",
+    "article": "CC3.2",
+    "title": "Risk identification and analysis",
+    "text": "Management shall identify, assess, and analyze risks that could impact achievement of security, availability, and confidentiality objectives.",
+    "tags": [
+      "risk_assessment",
+      "security"
+    ]
+  },
+  {
+    "id": "SOC2-CC5-1",
+    "source": "SOC2",
+    "article": "CC5.2",
+    "title": "Control activities",
+    "text": "Control activities shall be selected and developed to mitigate risks to acceptable levels, including IT and process-level controls.",
+    "tags": [
+      "controls",
+      "risk_mitigation"
+    ]
+  },
+  {
+    "id": "SOC2-CC6-1",
+    "source": "SOC2",
+    "article": "CC6.1",
+    "title": "Logical access",
+    "text": "Logical access security software, infrastructure, and architectures shall be implemented to protect information assets against unauthorized access.",
+    "tags": [
+      "access_control",
+      "authentication"
+    ]
+  },
+  {
+    "id": "SOC2-CC7-1",
+    "source": "SOC2",
+    "article": "CC7.2",
+    "title": "System monitoring",
+    "text": "The entity shall monitor system components and operations to detect anomalies, security events, and control failures promptly.",
+    "tags": [
+      "monitoring",
+      "detection"
+    ]
+  },
+  {
+    "id": "SOC2-A1-1",
+    "source": "SOC2",
+    "article": "A1.2",
+    "title": "Availability commitments",
+    "text": "The entity shall establish and maintain commitments for system availability, including capacity planning, incident handling, and recovery.",
+    "tags": [
+      "availability",
+      "continuity"
+    ]
+  },
+  {
+    "id": "SOC2-C1-1",
+    "source": "SOC2",
+    "article": "C1.1",
+    "title": "Confidentiality commitments",
+    "text": "Information designated as confidential shall be protected through policies, contractual commitments, encryption, and access restrictions.",
+    "tags": [
+      "confidentiality",
+      "data_protection"
+    ]
+  }
+]

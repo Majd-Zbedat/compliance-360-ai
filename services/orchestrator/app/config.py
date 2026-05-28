@@ -17,6 +17,9 @@ class OrchestratorSettings(BaseSettings):
     langgraph_agent_service_url: str = "http://localhost:8004"
     database_url: str = "sqlite:///./data/auditor.db"
     request_timeout_s: float = 120.0
+    # When set, POST /audits forwards to n8n instead of the in-process Python pipeline.
+    n8n_webhook_url: str = "http://localhost:5678/webhook/compliance-audit"
+    n8n_request_timeout_s: float = 180.0
 
     @property
     def sqlite_dir(self) -> Path:

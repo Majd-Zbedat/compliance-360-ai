@@ -1,0 +1,90 @@
+[
+  {
+    "id": "ISO42001-4-1",
+    "source": "ISO42001",
+    "article": "Clause 4.1",
+    "title": "Understanding organization and context",
+    "text": "The organization shall determine internal and external issues relevant to the intended outcomes of the AI management system.",
+    "tags": [
+      "ai_governance",
+      "context"
+    ]
+  },
+  {
+    "id": "ISO42001-5-1",
+    "source": "ISO42001",
+    "article": "Clause 5.1",
+    "title": "Leadership and commitment",
+    "text": "Top management shall demonstrate leadership and commitment with respect to the AI management system, including accountability for effectiveness.",
+    "tags": [
+      "ai_governance",
+      "leadership"
+    ]
+  },
+  {
+    "id": "ISO42001-6-1",
+    "source": "ISO42001",
+    "article": "Clause 6.1",
+    "title": "Actions to address risks and opportunities",
+    "text": "The organization shall plan actions to address AI-related risks and opportunities and integrate these actions into management system processes.",
+    "tags": [
+      "risk_management",
+      "ai_governance"
+    ]
+  },
+  {
+    "id": "ISO42001-7-2",
+    "source": "ISO42001",
+    "article": "Clause 7.2",
+    "title": "Competence",
+    "text": "Persons performing work under the organization's control that affects AI system performance shall be competent based on education, training, or experience.",
+    "tags": [
+      "competence",
+      "training"
+    ]
+  },
+  {
+    "id": "ISO42001-8-2",
+    "source": "ISO42001",
+    "article": "Clause 8.2",
+    "title": "AI impact assessment",
+    "text": "The organization shall perform and maintain AI impact assessments to identify potential harms, affected stakeholders, and mitigation controls.",
+    "tags": [
+      "impact_assessment",
+      "harm_mitigation"
+    ]
+  },
+  {
+    "id": "ISO42001-8-4",
+    "source": "ISO42001",
+    "article": "Clause 8.4",
+    "title": "Data and model management",
+    "text": "Data quality, provenance, and model lifecycle activities shall be managed with documented controls for traceability and accountability.",
+    "tags": [
+      "data_governance",
+      "model_governance"
+    ]
+  },
+  {
+    "id": "ISO42001-9-1",
+    "source": "ISO42001",
+    "article": "Clause 9.1",
+    "title": "Monitoring and measurement",
+    "text": "The organization shall monitor, measure, analyze, and evaluate AI system performance and management system effectiveness at planned intervals.",
+    "tags": [
+      "monitoring",
+      "performance"
+    ]
+  },
+  {
+    "id": "ISO42001-10-1",
+    "source": "ISO42001",
+    "article": "Clause 10.1",
+    "title": "Improvement",
+    "text": "The organization shall identify opportunities for improvement and implement necessary actions to achieve intended outcomes of the AI management system.",
+    "tags": [
+      "continuous_improvement",
+      "governance"
+    ]
+  }
+]
