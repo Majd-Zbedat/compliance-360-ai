@@ -1,49 +1,196 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { CheckCircle2, FileText, Sparkles, Upload } from "lucide-react";
+import Link from "next/link";
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  FileText,
+  Loader2,
+  RotateCcw,
+  Upload,
+  X,
+} from "lucide-react";
+import { api, type AuditDetail } from "@/lib/api";
+import { ComplianceReportCard } from "@/components/ComplianceReportCard";
 
-type DetectionStatus = "idle" | "analyzing-pdf" | "ocr-vision" | "transcribing-media";
+type Phase = "idle" | "reading" | "submitting";
 
-const statusMessages: Record<DetectionStatus, string> = {
-  idle: "AI-Powered Detection Ready",
-  "analyzing-pdf": "Analyzing PDF...",
-  "ocr-vision": "Running Smart Vision OCR...",
-  "transcribing-media": "Transcribing Media...",
-};
+const CONTRACT_TYPES = [
+  { value: "", label: "Select contract type…" },
+  { value: "MSA", label: "Master Services Agreement (MSA)" },
+  { value: "DPA", label: "Data Processing Agreement (DPA)" },
+  { value: "NDA", label: "Non-Disclosure Agreement (NDA)" },
+  { value: "Vendor / SaaS", label: "Vendor / SaaS Agreement" },
+  { value: "Banking / Financial", label: "Banking / Financial Services" },
+  { value: "Employment", label: "Employment / HR" },
+  { value: "Other", label: "Other" },
+];
+
+const JURISDICTIONS = [
+  { value: "", label: "Select jurisdiction…" },
+  { value: "EU / GDPR", label: "EU / GDPR" },
+  { value: "US Federal", label: "US Federal" },
+  { value: "UK", label: "United Kingdom" },
+  { value: "Israel", label: "Israel" },
+  { value: "Global / Multi-jurisdiction", label: "Global / Multi-jurisdiction" },
+  { value: "Other", label: "Other" },
+];
+
+const INDUSTRY_SECTORS = [
+  { value: "", label: "Select industry (optional)…" },
+  { value: "Banking & Finance", label: "Banking & Finance" },
+  { value: "Cybersecurity & IT", label: "Cybersecurity & IT" },
+  { value: "Healthcare", label: "Healthcare" },
+  { value: "AI / Machine Learning", label: "AI / Machine Learning" },
+  { value: "General / Cross-industry", label: "General / Cross-industry" },
+  { value: "Other", label: "Other" },
+];
+
+const REGULATORY_FOCUS = [
+  { value: "", label: "Auto — full regulation library" },
+  { value: "Data Privacy (GDPR, Privacy Controls)", label: "Data Privacy (GDPR, Privacy Controls)" },
+  { value: "Banking (SOX, PCI DSS, AML/KYC, Basel III)", label: "Banking (SOX, PCI DSS, AML/KYC, Basel III)" },
+  { value: "Cybersecurity (NIST CSF, SOC 2, ISO 27001)", label: "Cybersecurity (NIST CSF, SOC 2, ISO 27001)" },
+  { value: "Healthcare (HIPAA)", label: "Healthcare (HIPAA)" },
+  { value: "AI Governance (ISO 42001, GDPR)", label: "AI Governance (ISO 42001, GDPR)" },
+  { value: "Other", label: "Other" },
+];
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === "string") {
+        const idx = result.indexOf(",");
+        resolve(idx >= 0 ? result.slice(idx + 1) : result);
+      } else {
+        reject(new Error("Failed to read file"));
+      }
+    };
+    reader.onerror = () => reject(reader.error || new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+}
 
 export function SmartIngestion() {
-  const router = useRouter();
   const [isDragging, setIsDragging] = useState(false);
-  const [files, setFiles] = useState<string[]>([]);
-  const [currentStatus, setCurrentStatus] = useState<DetectionStatus>("idle");
+  const [file, setFile] = useState<File | null>(null);
+  const [phase, setPhase] = useState<Phase>("idle");
+  const [error, setError] = useState<string | null>(null);
+  const [contractType, setContractType] = useState("");
+  const [contractTypeOther, setContractTypeOther] = useState("");
+  const [jurisdiction, setJurisdiction] = useState("");
+  const [jurisdictionOther, setJurisdictionOther] = useState("");
+  const [industrySector, setIndustrySector] = useState("");
+  const [industrySectorOther, setIndustrySectorOther] = useState("");
+  const [regulatoryFocus, setRegulatoryFocus] = useState("");
+  const [regulatoryFocusOther, setRegulatoryFocusOther] = useState("");
+  const [result, setResult] = useState<AuditDetail | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const simulateProcessing = (fileName: string) => {
-    const ext = fileName.split(".").pop()?.toLowerCase();
-    let status: DetectionStatus = "analyzing-pdf";
-    if (ext === "png" || ext === "jpg" || ext === "jpeg" || ext === "tiff") {
-      status = "ocr-vision";
-    } else if (ext === "mp4" || ext === "mp3" || ext === "wav") {
-      status = "transcribing-media";
-    }
-    setCurrentStatus(status);
-    setTimeout(() => setCurrentStatus("idle"), 2000);
+  const resolvedContractType =
+    contractType === "Other" ? contractTypeOther.trim() : contractType;
+  const resolvedJurisdiction =
+    jurisdiction === "Other" ? jurisdictionOther.trim() : jurisdiction;
+  const resolvedIndustry =
+    industrySector === "Other"
+      ? industrySectorOther.trim()
+      : industrySector.trim();
+  const resolvedRegulatory =
+    regulatoryFocus === "Other"
+      ? regulatoryFocusOther.trim()
+      : regulatoryFocus.trim();
+
+  const pickFile = (f: File | undefined | null) => {
+    if (!f) return;
+    setError(null);
+    setFile(f);
   };
 
-  const addFiles = (names: string[]) => {
-    setFiles((prev) => [...prev, ...names]);
-    if (names[0]) simulateProcessing(names[0]);
+  const reset = () => {
+    setResult(null);
+    setFile(null);
+    setError(null);
+    setContractType("");
+    setContractTypeOther("");
+    setJurisdiction("");
+    setJurisdictionOther("");
+    setIndustrySector("");
+    setIndustrySectorOther("");
+    setRegulatoryFocus("");
+    setRegulatoryFocusOther("");
+    if (inputRef.current) inputRef.current.value = "";
   };
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    addFiles(Array.from(e.dataTransfer.files).map((f) => f.name));
+    pickFile(e.dataTransfer.files?.[0]);
   }, []);
 
-  const isProcessing = currentStatus !== "idle";
+  const canSubmit = Boolean(file && resolvedContractType && resolvedJurisdiction);
+
+  const run = async () => {
+    if (!canSubmit || phase !== "idle" || !file) return;
+    setError(null);
+    try {
+      setPhase("reading");
+      const document_b64 = await fileToBase64(file);
+      setPhase("submitting");
+      const res = await api.createAudit({
+        filename: file.name,
+        document_b64,
+        contract_type: resolvedContractType,
+        jurisdiction: resolvedJurisdiction,
+        industry_sector: resolvedIndustry || undefined,
+        regulatory_focus: resolvedRegulatory || undefined,
+      });
+      const detail = await api.getAudit(res.audit_id);
+      setResult(detail);
+      setPhase("idle");
+    } catch (err: any) {
+      setError(err?.message || "Failed to start audit");
+      setPhase("idle");
+    }
+  };
+
+  const busy = phase !== "idle";
+
+  if (result) {
+    return (
+      <div>
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="h-5 w-0.5 rounded-full bg-accent" />
+            <p className="text-xs font-semibold uppercase tracking-widest text-primary">
+              Audit Feedback
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/audits/${result.id}`}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-primary hover:bg-muted"
+            >
+              Open full report
+              <ArrowRight size={13} />
+            </Link>
+            <button
+              type="button"
+              onClick={reset}
+              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent/90"
+            >
+              <RotateCcw size={13} />
+              Analyze another
+            </button>
+          </div>
+        </div>
+        <ComplianceReportCard audit={result} />
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -61,23 +208,20 @@ export function SmartIngestion() {
         }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={handleDrop}
-        onClick={() => inputRef.current?.click()}
-        className="cursor-pointer select-none rounded-lg border-2 border-dashed transition-all"
+        onClick={() => !file && inputRef.current?.click()}
+        className="select-none rounded-lg border-2 border-dashed transition-all"
         style={{
           borderColor: isDragging ? "#86BC25" : "#D1D5DB",
           backgroundColor: isDragging ? "#F4FAE8" : "#FAFAFA",
+          cursor: file ? "default" : "pointer",
         }}
       >
         <input
           ref={inputRef}
           type="file"
-          accept=".pdf,.docx,.txt,.png,.jpg,.jpeg,.tiff,.mp4,.mp3,.wav"
+          accept=".pdf,.txt"
           className="hidden"
-          multiple
-          onChange={(e) => {
-            addFiles(Array.from(e.target.files || []).map((f) => f.name));
-            router.push("/audits/new");
-          }}
+          onChange={(e) => pickFile(e.target.files?.[0])}
         />
 
         <div className="flex min-h-[220px] flex-col items-center justify-center p-10 text-center">
@@ -91,50 +235,162 @@ export function SmartIngestion() {
             <FileText size={24} />
           </div>
 
-          <p className="mb-1.5 text-base font-semibold text-primary">Upload Documents or Media</p>
-          <p className="mb-5 max-w-md text-sm text-[#9CA3AF]">
-            Drag & drop contracts, PDFs, scanned images, or media files here
+          <p className="mb-1.5 text-base font-semibold text-primary">
+            Upload a contract for analysis
           </p>
+          <p className="mb-5 max-w-md text-sm text-[#9CA3AF]">
+            Drag &amp; drop a contract PDF here, or click to browse. Fill in the
+            fields below so the audit targets the right regulations.
+          </p>
+
+          {file && (
+            <div className="mb-5 flex items-center gap-2.5 rounded border border-border bg-white px-3 py-2 text-sm text-brand-ink">
+              <CheckCircle2 size={14} className="text-accent" />
+              <span className="max-w-xs truncate text-left">{file.name}</span>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setFile(null);
+                  if (inputRef.current) inputRef.current.value = "";
+                }}
+                className="text-muted-foreground hover:text-destructive"
+                aria-label="Remove file"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
+
+          <div
+            className="mb-5 grid w-full max-w-xl grid-cols-1 gap-3 sm:grid-cols-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <SelectOrOtherField
+              label="Contract type *"
+              value={contractType}
+              otherValue={contractTypeOther}
+              onChange={setContractType}
+              onOtherChange={setContractTypeOther}
+              options={CONTRACT_TYPES}
+              otherPlaceholder="Describe contract type…"
+              required
+            />
+            <SelectOrOtherField
+              label="Jurisdiction *"
+              value={jurisdiction}
+              otherValue={jurisdictionOther}
+              onChange={setJurisdiction}
+              onOtherChange={setJurisdictionOther}
+              options={JURISDICTIONS}
+              otherPlaceholder="e.g. Israel, California, Singapore…"
+              required
+            />
+            <SelectOrOtherField
+              label="Industry sector"
+              value={industrySector}
+              otherValue={industrySectorOther}
+              onChange={setIndustrySector}
+              onOtherChange={setIndustrySectorOther}
+              options={INDUSTRY_SECTORS}
+              otherPlaceholder="Describe industry…"
+            />
+            <SelectOrOtherField
+              label="Regulations to prioritize"
+              value={regulatoryFocus}
+              otherValue={regulatoryFocusOther}
+              onChange={setRegulatoryFocus}
+              onOtherChange={setRegulatoryFocusOther}
+              options={REGULATORY_FOCUS}
+              otherPlaceholder="e.g. SOX + local banking law…"
+            />
+          </div>
 
           <button
             type="button"
-            className="mb-6 inline-flex items-center gap-2.5 rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-white"
+            disabled={!canSubmit || busy}
+            className="inline-flex items-center gap-2.5 rounded-md bg-accent px-5 py-2.5 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
             onClick={(e) => {
               e.stopPropagation();
-              router.push("/audits/new");
+              run();
             }}
           >
-            <Upload size={14} />
-            Analyze
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+            {phase === "reading"
+              ? "Reading file…"
+              : phase === "submitting"
+                ? "Running Compliance 360…"
+                : "Analyze contract"}
           </button>
 
-          <div
-            className="inline-flex items-center gap-2 rounded-md px-4 py-2 text-xs font-medium transition-all"
-            style={{
-              backgroundColor: isProcessing ? "#EFF6FF" : "#F0F9E8",
-              color: isProcessing ? "#1D4ED8" : "#2D6A0A",
-              border: `1px solid ${isProcessing ? "#3B82F640" : "#86BC2540"}`,
-            }}
-          >
-            <Sparkles size={13} className={isProcessing ? "animate-pulse" : ""} />
-            <span>{statusMessages[currentStatus]}</span>
-          </div>
+          {!canSubmit && !busy && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              Upload a PDF, select contract type and jurisdiction (or choose Other and type
+              your value).
+            </p>
+          )}
 
-          {files.length > 0 && (
-            <div className="mt-6 w-full max-w-lg space-y-2">
-              {files.slice(-3).map((name, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-2.5 rounded border border-border bg-white px-3 py-2 text-sm text-brand-ink"
-                >
-                  <CheckCircle2 size={14} className="text-accent" />
-                  <span className="flex-1 truncate text-left">{name}</span>
-                </div>
-              ))}
+          {error && (
+            <div className="mt-4 flex max-w-xl items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-left text-sm text-destructive">
+              <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+              <span>{error}</span>
             </div>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function SelectOrOtherField({
+  label,
+  value,
+  otherValue,
+  onChange,
+  onOtherChange,
+  options,
+  otherPlaceholder,
+  required,
+}: {
+  label: string;
+  value: string;
+  otherValue: string;
+  onChange: (v: string) => void;
+  onOtherChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  otherPlaceholder: string;
+  required?: boolean;
+}) {
+  const isOther = value === "Other";
+
+  return (
+    <div className="flex flex-col gap-1 text-left">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <select
+        className="h-9 rounded-md border border-border bg-white px-3 text-sm text-brand-ink outline-none focus:border-accent"
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          if (e.target.value !== "Other") onOtherChange("");
+        }}
+      >
+        {options.map((o) => (
+          <option key={o.value || "empty"} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      {isOther && (
+        <input
+          type="text"
+          className="h-9 rounded-md border border-border bg-white px-3 text-sm text-brand-ink outline-none focus:border-accent"
+          placeholder={otherPlaceholder}
+          value={otherValue}
+          onChange={(e) => onOtherChange(e.target.value)}
+          required={required}
+          autoFocus
+        />
+      )}
     </div>
   );
 }

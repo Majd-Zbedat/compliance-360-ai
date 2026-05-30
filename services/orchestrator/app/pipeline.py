@@ -27,6 +27,7 @@ import httpx
 
 from .config import settings
 from .db import AuditRow, session_scope
+from .recommendations import recommend
 from .schemas import AuditCreateRequest
 
 
@@ -146,7 +147,13 @@ async def run_pipeline(req: AuditCreateRequest) -> PipelineResult:
                     safe_justification = check["safe_text"]
             except Exception:
                 safe_justification = None
-            findings_out.append({**f, "safe_justification": safe_justification})
+            findings_out.append(
+                {
+                    **f,
+                    "safe_justification": safe_justification,
+                    "recommendation": f.get("recommendation") or recommend(f),
+                }
+            )
 
     overall_risk = str(agent.get("overall_risk") or "Unknown")
 

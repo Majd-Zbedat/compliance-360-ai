@@ -6,6 +6,7 @@ import { Badge, RiskBadge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { formatDateTime } from "@/lib/utils";
+import { ComplianceReportCard } from "@/components/ComplianceReportCard";
 import { FindingsTable } from "./findings-table";
 
 export const dynamic = "force-dynamic";
@@ -54,18 +55,9 @@ export default async function AuditDetailPage({ params }: { params: { id: string
         <MetaCard label="Requester" value={audit.requester || "—"} />
       </div>
 
-      {audit.status === "Rejected" ? (
-        <Card>
-          <CardHeader>
-            <CardTitle>Audit rejected by guardrail</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              {audit.rejection_reason || "The input was rejected by the guardrail."}
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
+      <ComplianceReportCard audit={audit} />
+
+      {audit.status !== "Rejected" && (
         <>
           <Card>
             <CardHeader>

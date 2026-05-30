@@ -9,12 +9,31 @@ from pydantic import BaseModel, Field
 
 
 class AuditCreateRequest(BaseModel):
-    filename: str
-    document_b64: str = Field(..., description="Base64-encoded PDF contents")
+    filename: str = "contract.txt"
+    document_b64: str = Field(
+        default="",
+        description="Base64-encoded PDF or UTF-8 text; optional if dataset_contract_id is set",
+    )
     parties: list[str] = Field(default_factory=list)
     jurisdiction: Optional[str] = None
     contract_type: Optional[str] = None
     requester: Optional[str] = None
+    industry_sector: Optional[str] = Field(
+        None, description="Industry context e.g. Banking, Healthcare, AI"
+    )
+    regulatory_focus: Optional[str] = Field(
+        None, description="Preferred regulation pack e.g. GDPR, SOX/PCI, HIPAA"
+    )
+    contract_category: Optional[str] = Field(
+        None, description="Dataset category: bank | cybersecurity | ai"
+    )
+    dataset_contract_id: Optional[str] = Field(
+        None, description="ID of a contract row from the normalized dataset"
+    )
+    regulatory_sources: Optional[list[str]] = Field(
+        default=None,
+        description="RAG source filter, e.g. ['SOX', 'PCI_DSS']",
+    )
 
 
 class FindingOut(BaseModel):
@@ -27,6 +46,7 @@ class FindingOut(BaseModel):
     justification: str
     confidence: float
     safe_justification: Optional[str] = None
+    recommendation: Optional[str] = None
 
 
 class ClauseOut(BaseModel):
@@ -89,6 +109,60 @@ class RegulationOut(BaseModel):
     title: Optional[str] = None
     text: str
     tags: list[str] = []
+
+
+class RegulationCreateRequest(BaseModel):
+    source: str = Field(..., description="Regulation family, e.g. GDPR, SOX, Custom")
+    article: Optional[str] = Field(None, description="Article / section label")
+    title: Optional[str] = None
+    text: Optional[str] = Field(None, description="Raw regulation text (clauses)")
+    document_b64: Optional[str] = Field(None, description="Base64 PDF/text to extract")
+    filename: Optional[str] = None
+    tags: list[str] = Field(default_factory=list)
+
+
+class RegulationCreateResponse(BaseModel):
+    added: int
+    total_indexed: int
+    source: str
+    ocr_used: bool = False
+    warning: Optional[str] = None
+
+
+class RegulationRef(BaseModel):
+    source: str
+    name: str
+
+
+class ContractCategoryOut(BaseModel):
+    id: str
+    label: str
+    description: str
+    source_file: str
+    contract_count: int
+    industry_sector: Optional[str] = None
+    regulatory_focus: Optional[str] = None
+    default_jurisdiction: Optional[str] = None
+    default_contract_type: Optional[str] = None
+    regulations: list[RegulationRef] = Field(default_factory=list)
+    regulation_sources: list[str] = Field(default_factory=list)
+
+
+class ContractSummaryOut(BaseModel):
+    id: str
+    external_id: Optional[str] = None
+    category: str
+    title: Optional[str] = None
+    source_file: Optional[str] = None
+    risk_level: Optional[str] = None
+    compliance_standard: Optional[str] = None
+    preview: str = ""
+
+
+class ContractListResponse(BaseModel):
+    category: str
+    total: int
+    items: list[ContractSummaryOut]
 
 
 # ---------------------------------------------------------------------------

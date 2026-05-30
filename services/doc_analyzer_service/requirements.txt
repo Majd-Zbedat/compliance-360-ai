@@ -4,3 +4,10 @@ python-multipart==0.0.12
 pydantic==2.9.2
 pydantic-settings==2.6.0
 pdfplumber==0.11.4
+
+# Optional OCR stack for scanned / image-only PDFs. Install these plus the
+# Tesseract binary (https://github.com/UB-Mannheim/tesseract/wiki on Windows)
+# to enable automatic text recognition. The service runs without them and
+# returns a warning instead.
+# pytesseract==0.3.13
+# pdf2image==1.17.0

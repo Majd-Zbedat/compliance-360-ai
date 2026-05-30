@@ -1,0 +1,53 @@
+{
+  "bank": {
+    "label": "Banking & Finance",
+    "description": "Core banking, treasury, payments, and investment services contracts",
+    "source_file": "bank_contracts.xlsx",
+    "industry_sector": "Banking & Finance",
+    "regulatory_focus": "Banking (SOX, PCI DSS, AML/KYC, Basel III)",
+    "default_jurisdiction": "US Federal",
+    "default_contract_type": "Banking / Financial",
+    "regulations": [
+      { "source": "SOX", "name": "Sarbanes-Oxley Act" },
+      { "source": "PCI_DSS", "name": "PCI DSS" },
+      { "source": "AML_KYC", "name": "AML / KYC" },
+      { "source": "BASEL_III", "name": "Basel III" },
+      { "source": "GDPR", "name": "GDPR" },
+      { "source": "ISO27001", "name": "ISO 27001" },
+      { "source": "LocalLaw", "name": "Local Law Extension" }
+    ]
+  },
+  "cybersecurity": {
+    "label": "Cybersecurity",
+    "description": "Endpoint, network, cloud security and threat detection vendor contracts",
+    "source_file": "cybersecurity_contracts.xlsx",
+    "industry_sector": "Cybersecurity & IT",
+    "regulatory_focus": "Cybersecurity (NIST CSF, SOC 2, ISO 27001)",
+    "default_jurisdiction": "Global / Multi-jurisdiction",
+    "default_contract_type": "Vendor / SaaS",
+    "regulations": [
+      { "source": "NIST_CSF", "name": "NIST CSF" },
+      { "source": "SOC2", "name": "SOC 2" },
+      { "source": "ISO27001", "name": "ISO 27001" },
+      { "source": "GDPR", "name": "GDPR" },
+      { "source": "PrivacyControls", "name": "Privacy Controls" },
+      { "source": "HIPAA", "name": "HIPAA" }
+    ]
+  },
+  "ai": {
+    "label": "AI & Machine Learning",
+    "description": "LLM API, AI platform, and machine-learning vendor contracts",
+    "source_file": "ai_contracts.xlsx",
+    "industry_sector": "AI / Machine Learning",
+    "regulatory_focus": "AI Governance (ISO 42001, GDPR)",
+    "default_jurisdiction": "Global / Multi-jurisdiction",
+    "default_contract_type": "Vendor / SaaS",
+    "regulations": [
+      { "source": "ISO42001", "name": "ISO 42001 (AI Management)" },
+      { "source": "GDPR", "name": "GDPR" },
+      { "source": "PrivacyControls", "name": "Privacy Controls" },
+      { "source": "SOC2", "name": "SOC 2" },
+      { "source": "ISO27001", "name": "ISO 27001" }
+    ]
+  }
+}

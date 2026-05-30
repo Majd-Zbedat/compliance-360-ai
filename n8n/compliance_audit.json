@@ -118,12 +118,12 @@
     },
     {
       "parameters": {
-        "prompt": "={{ 'You extract structured fields from a regulatory contract submission. Reply with one JSON object only — no markdown, no triple-backtick code fences, no text before or after the JSON.\\n\\nUse exactly these keys and types:\\n- contract_type (string): MSA | DPA | NDA | SLA | Employment | Vendor | other\\n- parties (array of strings): company names; [] if none\\n- jurisdiction (string): e.g. EU, US Federal, UK; unknown if not stated\\n- sensitive_topics (array of strings): e.g. data_processing, liability, termination; [] if none\\n- key_concerns (array of strings): up to 5 short risk phrases; [] if none\\n- routing_decision (string): escalation | reviewer_queue | auto_file — infer from severity of concerns (escalation = serious GDPR/SOX gaps)\\n\\nContract description:\\n' + $('Node 1 — Webhook Trigger').item.json.body.description + '\\n\\nRespond with JSON only.' }}"
+        "jsCode": "const body = $('Node 1 — Webhook Trigger').item.json.body || {};\nconst desc = String(body.description || '');\nconst ctx = {};\nconst block = desc.match(/\\[Audit context\\]\\s*([\\s\\S]*?)(?:\\n\\n\\[Contract text\\]|$)/);\nif (block) {\n  for (const line of block[1].split('\\n')) {\n    const m = line.match(/^([^:]+):\\s*(.+)$/);\n    if (m) ctx[m[1].trim().toLowerCase()] = m[2].trim();\n  }\n}\nconst contract_type = ctx['contract type'] || 'other';\nconst jurisdiction = ctx['jurisdiction'] || 'unknown';\nconst payload = {\n  contract_type,\n  parties: [],\n  jurisdiction,\n  sensitive_topics: [],\n  key_concerns: [],\n  routing_decision: 'reviewer_queue'\n};\nreturn [{ json: { text: JSON.stringify(payload) } }];"
       },
       "id": "351cdd8b-7513-4950-b771-9ba516991146",
       "name": "Node 4 — Extract contract (LLM)",
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         -1360,
         1440
@@ -277,12 +277,12 @@
     },
     {
       "parameters": {
-        "prompt": "=Map this LangGraph API response into the compliance triage JSON schema below.\n- overall_risk: use LangGraph overall_risk\n- findings: map each LangGraph finding (contract_clause_id, matched_regulatory_source, matched_regulatory_article, verdict, risk, justification, confidence)\n- routing_decision: High → escalation, Medium → reviewer_queue, Low → auto_file\n- jurisdiction, parties, contract_type: from Node 4b extracted fields (pass them in the same prompt if needed)\n- rag_insight: use report_markdown\n- confidence: average of finding confidences, or max finding confidence\nDo not return unknown placeholders if LangGraph findings are present.\nReport to clean:\n{{ JSON.stringify($('Run LangGraph Audit').item.json) }}"
+        "jsCode": "const lg = $('Run LangGraph Audit').item.json || {};\nconst ext = ($('Node 4b — Parse extracted JSON').item.json || {}).output || {};\nconst findings = (lg.findings || []).map(f => ({\n  contract_clause_id: f.contract_clause_id || f.clause_id || 'clause_1',\n  matched_regulatory_source: f.matched_regulatory_source || f.regulation_source || null,\n  matched_regulatory_article: f.matched_regulatory_article || f.regulation_article || null,\n  verdict: f.verdict || 'ambiguous',\n  risk: f.risk || 'Medium',\n  justification: String(f.justification || ''),\n  confidence: Number(f.confidence || 0)\n}));\nconst overall_risk = lg.overall_risk || 'Medium';\nconst routing_decision = overall_risk === 'High' ? 'escalation' : overall_risk === 'Low' ? 'auto_file' : 'reviewer_queue';\nconst confs = findings.map(f => f.confidence).filter(c => c > 0);\nconst confidence = confs.length ? confs.reduce((a, b) => a + b, 0) / confs.length : 0;\nconst report = {\n  contract_type: ext.contract_type || 'other',\n  routing_decision,\n  jurisdiction: ext.jurisdiction || 'unknown',\n  parties: ext.parties || [],\n  overall_risk,\n  findings,\n  similar_regulations: [],\n  rag_insight: lg.report_markdown || '',\n  enrichment_notes: '',\n  confidence\n};\nreturn [{ json: { text: JSON.stringify(report) } }];"
       },
       "id": "78cd60cb-2bc3-4949-86d3-7ab944fafb34",
       "name": "Node 6 — Final Report LLM Chain",
-      "type": "@n8n/n8n-nodes-langchain.chainLlm",
-      "typeVersion": 1,
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [
         -704,
         1296

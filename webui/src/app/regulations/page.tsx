@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Plus, RefreshCw, Search } from "lucide-react";
+import { AlertTriangle, ChevronDown, Loader2, Plus, RefreshCw, Search, X } from "lucide-react";
 import {
   AuditTable,
   AuditTableBody,
@@ -23,13 +23,31 @@ import { api, type Regulation } from "@/lib/api";
 const categoryMap: Record<string, string> = {
   GDPR: "Data Privacy",
   ISO27001: "Operational",
+  ISO42001: "AI Governance",
   LocalLaw: "Financial",
+  SOX: "Financial",
+  PCI_DSS: "Financial",
+  AML_KYC: "Financial",
+  BaselIII: "Financial",
+  NIST_CSF: "Cybersecurity",
+  SOC2: "Cybersecurity",
+  HIPAA: "Healthcare",
+  PrivacyControls: "Data Privacy",
 };
 
 const jurisdictionMap: Record<string, string> = {
   GDPR: "EU / GDPR",
   ISO27001: "Global",
+  ISO42001: "Global",
   LocalLaw: "US Federal",
+  SOX: "US Federal",
+  PCI_DSS: "Global",
+  AML_KYC: "Global",
+  BaselIII: "Global",
+  NIST_CSF: "US Federal",
+  SOC2: "US / AICPA",
+  HIPAA: "US Federal",
+  PrivacyControls: "Global",
 };
 
 const statuses = ["compliant", "review", "partial", "non-compliant"] as const;
@@ -63,6 +81,8 @@ export default function RegulationsPage() {
   const [category, setCategory] = useState("All");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,7 +101,7 @@ export default function RegulationsPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [reloadKey]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -112,16 +132,35 @@ export default function RegulationsPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => setReloadKey((k) => k + 1)}
+          >
             <RefreshCw size={14} />
             Sync Library
           </Button>
-          <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90">
+          <Button
+            size="sm"
+            className="gap-2 bg-primary hover:bg-primary/90"
+            onClick={() => setModalOpen(true)}
+          >
             <Plus size={14} />
             Add Regulation
           </Button>
         </div>
       </div>
+
+      {modalOpen && (
+        <AddRegulationModal
+          onClose={() => setModalOpen(false)}
+          onAdded={() => {
+            setModalOpen(false);
+            setReloadKey((k) => k + 1);
+          }}
+        />
+      )}
 
       <AuditTable>
         <AuditTableToolbar>
@@ -213,6 +252,205 @@ export default function RegulationsPage() {
         </AuditTableFooter>
       </AuditTable>
     </div>
+  );
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === "string") {
+        const idx = result.indexOf(",");
+        resolve(idx >= 0 ? result.slice(idx + 1) : result);
+      } else {
+        reject(new Error("Failed to read file"));
+      }
+    };
+    reader.onerror = () => reject(reader.error || new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function AddRegulationModal({
+  onClose,
+  onAdded,
+}: {
+  onClose: () => void;
+  onAdded: () => void;
+}) {
+  const [mode, setMode] = useState<"text" | "file">("text");
+  const [source, setSource] = useState("");
+  const [article, setArticle] = useState("");
+  const [title, setTitle] = useState("");
+  const [text, setText] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const submit = async () => {
+    setError(null);
+    setNotice(null);
+    if (!source.trim()) {
+      setError("Source name is required (e.g. GDPR, SOX, Custom).");
+      return;
+    }
+    if (mode === "text" && !text.trim()) {
+      setError("Paste the regulation text, or switch to file upload.");
+      return;
+    }
+    if (mode === "file" && !file) {
+      setError("Choose a PDF or text file, or switch to pasting text.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const payload: Parameters<typeof api.addRegulation>[0] = {
+        source: source.trim(),
+        article: article.trim() || undefined,
+        title: title.trim() || undefined,
+        tags: [],
+      };
+      if (mode === "text") {
+        payload.text = text;
+      } else if (file) {
+        payload.document_b64 = await fileToBase64(file);
+        payload.filename = file.name;
+      }
+      const res = await api.addRegulation(payload);
+      if (res.warning) {
+        setNotice(res.warning);
+      }
+      onAdded();
+    } catch (err: any) {
+      setError(err?.message || "Failed to add regulation");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-lg border border-border bg-card p-6 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-primary">Add Regulation</h2>
+            <p className="text-sm text-muted-foreground">
+              Index a new source into the audit knowledge base (paste text or upload a PDF).
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="text-muted-foreground hover:text-foreground"
+            aria-label="Close"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        <div className="mb-4 inline-flex rounded-md border border-border p-0.5 text-sm">
+          {(["text", "file"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={
+                "rounded px-3 py-1.5 font-medium transition-colors " +
+                (mode === m
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-muted")
+              }
+            >
+              {m === "text" ? "Paste text" : "Upload PDF / TXT"}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <ModalField label="Source *" placeholder="GDPR, SOX, Custom…" value={source} onChange={setSource} />
+          <ModalField label="Article / section" placeholder="Art. 32, Sec. 404…" value={article} onChange={setArticle} />
+        </div>
+        <div className="mt-3">
+          <ModalField label="Title (optional)" placeholder="Security of processing" value={title} onChange={setTitle} />
+        </div>
+
+        {mode === "text" ? (
+          <div className="mt-3 flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted-foreground">Regulation text *</span>
+            <textarea
+              rows={6}
+              className="rounded-md border border-border bg-white px-3 py-2 text-sm text-brand-ink outline-none focus:border-accent"
+              placeholder="Paste the clauses / control text here. Separate distinct clauses with a blank line."
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+          </div>
+        ) : (
+          <div className="mt-3 flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted-foreground">Document (PDF or .txt) *</span>
+            <input
+              type="file"
+              accept=".pdf,.txt"
+              className="text-sm"
+              onChange={(e) => setFile(e.target.files?.[0] || null)}
+            />
+          </div>
+        )}
+
+        {notice && (
+          <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800">
+            <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+            <span>{notice}</span>
+          </div>
+        )}
+        {error && (
+          <div className="mt-4 flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <div className="mt-6 flex justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button size="sm" className="gap-2 bg-primary hover:bg-primary/90" onClick={submit} disabled={busy}>
+            {busy && <Loader2 size={14} className="animate-spin" />}
+            {busy ? "Indexing…" : "Add to library"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ModalField({
+  label,
+  placeholder,
+  value,
+  onChange,
+}: {
+  label: string;
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <input
+        className="h-9 rounded-md border border-border bg-white px-3 text-sm text-brand-ink outline-none focus:border-accent"
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </label>
   );
 }
 

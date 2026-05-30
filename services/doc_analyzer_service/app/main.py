@@ -61,4 +61,6 @@ def analyse(req: AnalyseRequest) -> AnalyseResponse:
         page_count=doc.page_count,
         raw_text_chars=len(doc.full_text),
         clauses=clauses,
+        ocr_used=doc.ocr_used,
+        warning=doc.warning,
     )

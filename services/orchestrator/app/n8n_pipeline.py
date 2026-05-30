@@ -15,12 +15,35 @@ import httpx
 
 from .config import settings
 from .db import AuditRow, session_scope
-from .pipeline import PipelineResult, _decoded_text_from_b64, _persist_rejection, _post
+from .pipeline import PipelineResult, _decoded_text_from_b64, _persist_rejection, _post, run_pipeline
+from .recommendations import recommend
 from .schemas import AuditCreateRequest
 
 
+def _audit_context_block(req: AuditCreateRequest) -> str:
+    """Prefix contract text with user-supplied analysis context for n8n / LangGraph."""
+    lines: list[str] = []
+    if req.contract_category:
+        lines.append(f"Portfolio category: {req.contract_category}")
+    if req.dataset_contract_id:
+        lines.append(f"Dataset contract id: {req.dataset_contract_id}")
+    if req.contract_type:
+        lines.append(f"Contract type: {req.contract_type}")
+    if req.jurisdiction:
+        lines.append(f"Jurisdiction: {req.jurisdiction}")
+    if req.industry_sector:
+        lines.append(f"Industry sector: {req.industry_sector}")
+    if req.regulatory_focus:
+        lines.append(f"Regulatory focus: {req.regulatory_focus}")
+    if req.regulatory_sources:
+        lines.append(f"Regulations to prioritize: {', '.join(req.regulatory_sources)}")
+    if not lines:
+        return ""
+    return "[Audit context]\n" + "\n".join(lines) + "\n\n[Contract text]\n"
+
+
 def _normalize_finding(raw: dict[str, Any]) -> dict[str, Any]:
-    return {
+    out = {
         "contract_clause_id": raw.get("contract_clause_id")
         or raw.get("clause_id")
         or "clause_1",
@@ -34,6 +57,8 @@ def _normalize_finding(raw: dict[str, Any]) -> dict[str, Any]:
         "justification": str(raw.get("justification") or ""),
         "confidence": float(raw.get("confidence") or 0.0),
     }
+    out["recommendation"] = raw.get("recommendation") or recommend(out)
+    return out
 
 
 def _build_report_markdown(data: dict[str, Any], report: dict[str, Any]) -> str:
@@ -61,7 +86,8 @@ def _build_report_markdown(data: dict[str, Any], report: dict[str, Any]) -> str:
                 f"\n### {i}. {nf['contract_clause_id']} — {nf['risk']} ({nf['verdict']})\n"
                 f"**Regulation:** {nf.get('matched_regulatory_source') or '—'} "
                 f"{nf.get('matched_regulatory_article') or ''}\n\n"
-                f"{nf['justification']}"
+                f"{nf['justification']}\n\n"
+                f"**Recommended correction:** {nf.get('recommendation') or '—'}"
             )
     notes = report.get("enrichment_notes")
     if isinstance(notes, str) and notes.strip():
@@ -69,10 +95,31 @@ def _build_report_markdown(data: dict[str, Any], report: dict[str, Any]) -> str:
     return "\n".join(parts)
 
 
+def _normalize_report(raw: Any) -> dict[str, Any]:
+    """Flatten n8n report payloads (e.g. nested ``compliance_triage``)."""
+    if not isinstance(raw, dict):
+        return {}
+    inner = raw.get("compliance_triage")
+    if isinstance(inner, dict):
+        merged = {**inner, **{k: v for k, v in raw.items() if k != "compliance_triage"}}
+        risk = merged.get("overall_risk") or "Medium"
+        if not merged.get("routing_decision"):
+            merged["routing_decision"] = (
+                "escalation"
+                if risk == "High"
+                else "auto_file"
+                if risk == "Low"
+                else "reviewer_queue"
+            )
+        return merged
+    return raw
+
+
 async def _extract_clauses_and_description(
     client: httpx.AsyncClient, req: AuditCreateRequest, contract_id: str
 ) -> tuple[list[dict[str, Any]], str]:
     pre_text = _decoded_text_from_b64(req.document_b64)
+    is_pdf = not pre_text.strip()
     clauses: list[dict[str, Any]] = []
     try:
         analyse = await _post(
@@ -85,7 +132,13 @@ async def _extract_clauses_and_description(
             },
         )
         clauses = list(analyse.get("clauses") or [])
-    except Exception:
+    except Exception as exc:
+        if is_pdf:
+            url = settings.doc_analyzer_service_url.rstrip("/")
+            raise RuntimeError(
+                f"Cannot reach doc-analyzer at {url} (required for PDF upload). "
+                f"Run .\\scripts\\run_dev.ps1 and ensure port 8002 is up. ({exc})"
+            ) from exc
         clauses = []
     description = pre_text.strip() or "\n\n".join(
         str(c.get("text") or "") for c in clauses if c.get("text")
@@ -171,18 +224,54 @@ async def run_n8n_pipeline(req: AuditCreateRequest) -> PipelineResult:
             )
 
         payload = {
-            "description": description[:50_000],
+            "description": (_audit_context_block(req) + description)[:50_000],
             "filename": req.filename,
             "requester": req.requester or "Web UI",
         }
 
-        r = await client.post(webhook_url, json=payload)
+        try:
+            r = await client.post(webhook_url, json=payload)
+        except httpx.ConnectError as exc:
+            raise RuntimeError(
+                f"Cannot reach n8n webhook at {webhook_url}. "
+                "Ensure n8n is running, the workflow is Active, and "
+                "N8N_WEBHOOK_URL uses the host port (9090 for Docker 9090:5678). "
+                f"({exc})"
+            ) from exc
+
+        body_preview = (r.text or "").strip()
+        if not body_preview:
+            # n8n returned 200 with an empty body: the workflow finished without
+            # reaching a "Respond to Webhook" node (a node failed mid-run, or the
+            # workflow is not Active). Fall back to the Python pipeline when enabled.
+            if settings.n8n_fallback_to_python:
+                return await run_pipeline(req)
+            return _persist_rejection(
+                audit_id=audit_id,
+                req=req,
+                now=now,
+                clauses=clauses,
+                reason=(
+                    f"The n8n workflow returned an empty response (HTTP {r.status_code}). "
+                    "Check the n8n execution log — a node likely failed before the "
+                    "Respond to Webhook step, or the workflow is not Active."
+                ),
+            )
         try:
             data = r.json()
-        except Exception as exc:
-            raise RuntimeError(
-                f"n8n returned non-JSON (HTTP {r.status_code}): {r.text[:500]}"
-            ) from exc
+        except Exception:
+            return _persist_rejection(
+                audit_id=audit_id,
+                req=req,
+                now=now,
+                clauses=clauses,
+                reason=(
+                    f"The n8n workflow returned a non-JSON response (HTTP {r.status_code}): "
+                    f"{body_preview[:300]}"
+                ),
+            )
+        if not isinstance(data, dict):
+            data = {"success": True, "report": data}
 
         if r.status_code == 422 or data.get("rejected"):
             reason = str(
@@ -199,7 +288,7 @@ async def run_n8n_pipeline(req: AuditCreateRequest) -> PipelineResult:
             )
 
         if data.get("human_review_required"):
-            report = data.get("report") if isinstance(data.get("report"), dict) else {}
+            report = _normalize_report(data.get("report"))
             flag = data.get("flag_reason") or "Output flagged for human review."
             return _persist_success(
                 audit_id=audit_id,
@@ -224,7 +313,7 @@ async def run_n8n_pipeline(req: AuditCreateRequest) -> PipelineResult:
                 reason=reason,
             )
 
-        report = data.get("report") if isinstance(data.get("report"), dict) else {}
+        report = _normalize_report(data.get("report"))
         return _persist_success(
             audit_id=audit_id,
             req=req,

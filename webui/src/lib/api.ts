@@ -31,6 +31,7 @@ export interface Finding {
   justification: string;
   confidence: number;
   safe_justification?: string | null;
+  recommendation?: string | null;
 }
 
 export interface Clause {
@@ -82,6 +83,14 @@ export interface Regulation {
   tags: string[];
 }
 
+export interface AddRegulationResponse {
+  added: number;
+  total_indexed: number;
+  source: string;
+  ocr_used: boolean;
+  warning?: string | null;
+}
+
 export interface ChatSource {
   id: string;
   source: string;
@@ -105,6 +114,42 @@ export interface CreateAuditResponse {
   rejection_reason?: string | null;
 }
 
+export interface RegulationRef {
+  source: string;
+  name: string;
+}
+
+export interface ContractCategory {
+  id: string;
+  label: string;
+  description: string;
+  source_file: string;
+  contract_count: number;
+  industry_sector?: string | null;
+  regulatory_focus?: string | null;
+  default_jurisdiction?: string | null;
+  default_contract_type?: string | null;
+  regulations: RegulationRef[];
+  regulation_sources: string[];
+}
+
+export interface ContractSummary {
+  id: string;
+  external_id?: string | null;
+  category: string;
+  title?: string | null;
+  source_file?: string | null;
+  risk_level?: string | null;
+  compliance_standard?: string | null;
+  preview: string;
+}
+
+export interface ContractListResponse {
+  category: string;
+  total: number;
+  items: ContractSummary[];
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     cache: "no-store",
@@ -125,6 +170,12 @@ export const api = {
   listAudits: () => request<AuditSummary[]>("/audits"),
   getAudit: (id: string) => request<AuditDetail>(`/audits/${id}`),
   stats: () => request<Stats>("/audits/stats"),
+  contractCategories: () => request<ContractCategory[]>("/contracts/categories"),
+  listContracts: (category: string, q?: string, limit = 100) => {
+    const params = new URLSearchParams({ category, limit: String(limit) });
+    if (q) params.set("q", q);
+    return request<ContractListResponse>(`/contracts?${params.toString()}`);
+  },
   regulations: (source?: string, q?: string) => {
     const params = new URLSearchParams();
     if (source) params.set("source", source);
@@ -138,14 +189,32 @@ export const api = {
       body: JSON.stringify(payload),
     }),
   createAudit: (payload: {
-    filename: string;
-    document_b64: string;
+    filename?: string;
+    document_b64?: string;
     parties?: string[];
     jurisdiction?: string;
     contract_type?: string;
     requester?: string;
+    industry_sector?: string;
+    regulatory_focus?: string;
+    contract_category?: string;
+    dataset_contract_id?: string;
+    regulatory_sources?: string[];
   }) =>
     request<CreateAuditResponse>("/audits", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  addRegulation: (payload: {
+    source: string;
+    article?: string;
+    title?: string;
+    text?: string;
+    document_b64?: string;
+    filename?: string;
+    tags?: string[];
+  }) =>
+    request<AddRegulationResponse>("/regulations", {
       method: "POST",
       body: JSON.stringify(payload),
     }),

@@ -1,12 +1,16 @@
 # Contract Datasets (3 Categories)
 
-Raw files copied into this project:
+Your three Excel portfolios are the demo contract dataset:
 
-- `raw/bank_contracts.xlsx`
-- `raw/cybersecurity_contracts.xlsx`
-- `raw/ai_contracts.xlsx`
+| Category | Raw file | Contracts | Regulations checked |
+|----------|----------|-----------|---------------------|
+| **bank** | `raw/bank_contracts.xlsx` | 150 | SOX, PCI DSS, AML/KYC, Basel III, GDPR, ISO 27001, Local Law |
+| **cybersecurity** | `raw/cybersecurity_contracts.xlsx` | 150 | NIST CSF, SOC 2, ISO 27001, GDPR, Privacy Controls, HIPAA |
+| **ai** | `raw/ai_contracts.xlsx` | 150 | ISO 42001, GDPR, Privacy Controls, SOC 2, ISO 27001 |
 
-## Normalize to JSONL
+Category → regulation mapping lives in `category_regulations.json`.
+
+## Import / normalize
 
 From project root:
 
@@ -15,41 +19,26 @@ From project root:
 python scripts\import_contract_datasets.py
 ```
 
-Optional tuning:
+Outputs:
 
-```powershell
-python scripts\import_contract_datasets.py --min-chars 120 --seed 7 --train 0.8 --val 0.1
-```
-
-## Outputs
-
-- `normalized/contracts_all.jsonl`
+- `normalized/contracts_all.jsonl` (450 rows)
 - `normalized/contracts_bank.jsonl`
 - `normalized/contracts_cybersecurity.jsonl`
 - `normalized/contracts_ai.jsonl`
-- `splits/train.jsonl`
-- `splits/val.jsonl`
-- `splits/test.jsonl`
+- `splits/train.jsonl`, `val.jsonl`, `test.jsonl`
 
-## Normalized record format
+## API (orchestrator)
 
-```json
-{
-  "id": "bank_Sheet1_42",
-  "category": "bank",
-  "source_file": "bank_contracts.xlsx",
-  "sheet_name": "Sheet1",
-  "text": "...contract text...",
-  "title": "...optional...",
-  "external_id": "...optional...",
-  "metadata": {
-    "raw": { "...all original columns...": "..." },
-    "text_column": "...",
-    "id_column": "...",
-    "title_column": "..."
-  }
-}
-```
+- `GET /contracts/categories` — list categories with regulation packs
+- `GET /contracts?category=bank` — browse dataset contracts
+- `POST /audits` with `contract_category` + `dataset_contract_id` — audit a dataset row
+- `POST /audits` with `contract_category` + `document_b64` — audit an uploaded PDF in that category context
 
-This format keeps all original fields for traceability while providing a clean
-`text` field for ingestion, chunking, and model training.
+## Dashboard
+
+The **Content Ingestion** zone on the dashboard lets you:
+
+1. Pick **Banking**, **Cybersecurity**, or **AI**
+2. See the relevant regulations for that portfolio
+3. Select a contract from the dataset **or** upload your own PDF
+4. Run the audit against the mapped regulation pack

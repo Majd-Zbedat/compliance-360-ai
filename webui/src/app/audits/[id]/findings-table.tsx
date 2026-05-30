@@ -216,6 +216,17 @@ function FindingDrawer({ finding, clause }: { finding: Finding; clause?: Clause 
             </details>
           )}
         </div>
+
+        {finding.recommendation && (
+          <div>
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Recommended correction
+            </div>
+            <div className="rounded-md border border-accent/40 bg-accent/10 p-3 leading-relaxed text-brand-ink">
+              {finding.recommendation}
+            </div>
+          </div>
+        )}
       </section>
     </>
   );

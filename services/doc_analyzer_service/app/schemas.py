@@ -28,3 +28,5 @@ class AnalyseResponse(BaseModel):
     page_count: int
     raw_text_chars: int
     clauses: list[AnalysedClause]
+    ocr_used: bool = False
+    warning: Optional[str] = None

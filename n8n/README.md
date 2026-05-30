@@ -317,3 +317,56 @@ Invoke-RestMethod `
 4. Send Node 7b false path to Node 7c first, then Node 7d, if you require guaranteed human-review notification.
 5. Add webhook auth/signature for production.
 
+---
+
+## 10) End-to-End Test: Layer 1 (UI) ↔ Layer 2 (n8n)
+
+Goal: confirm a contract uploaded in the dashboard flows through the orchestrator
+→ n8n → microservices and back into the UI.
+
+1. **Start backend services** (RAG 8001, doc-analyzer 8002, guardrails 8003,
+   langgraph 8004, orchestrator 8000):
+
+   ```powershell
+   .\scripts\run_dev.ps1
+   ```
+
+2. **Start n8n** (Docker) and **Activate** the `compliance_audit` workflow so the
+   production webhook `/webhook/compliance-audit` is live.
+
+3. **Point the orchestrator at n8n** — in the repo `.env`:
+
+   ```text
+   N8N_WEBHOOK_URL=http://localhost:5678/webhook/compliance-audit
+   ```
+
+   Confirm: `curl http://localhost:8000/healthz` → `"pipeline_driver": "n8n"`.
+
+4. **Start the UI** and upload a contract on the Dashboard:
+
+   ```powershell
+   cd webui ; npm run dev
+   ```
+
+   - Drop a contract **PDF** (or `.txt`) on the dashboard Content Ingestion zone.
+   - Optionally expand **Optional details** (jurisdiction / contract type) to aid analysis.
+   - Click **Analyze contract** → you land on `/audits/{id}` with risk, findings,
+     cited regulations, and a **Recommended correction** per finding.
+
+5. **Scanned PDFs:** if the PDF is image-only and the OCR stack isn't installed,
+   the audit still completes and the result notes that little text was extracted —
+   paste the text instead, or install the optional OCR stack (see
+   `services/doc_analyzer_service/requirements.txt`).
+
+### Upload new regulations (PDF or text)
+
+`POST http://localhost:8000/regulations` indexes a new source into the RAG store
+and appends it to the local corpus so it appears in the **Regulation Library** and
+re-seeds. The UI exposes this via **Regulations → Add Regulation** (paste text or
+upload a PDF/TXT).
+
+```powershell
+$body = @{ source = "Custom Vendor Policy"; article = "Sec. 1"; text = "Vendors must encrypt cardholder data at rest and in transit and notify within 72 hours of a breach." } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:8000/regulations" -Method POST -ContentType "application/json" -Body $body
+```
+
