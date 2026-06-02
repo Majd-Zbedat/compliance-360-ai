@@ -51,3 +51,4 @@ class UpsertRequest(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     regulations_indexed: int
+    embedding_backend: str = "unknown"

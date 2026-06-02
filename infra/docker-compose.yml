@@ -1,0 +1,68 @@
+# Layer 3 microservices — local / EC2 deployment
+#
+# Usage (from repo root):
+#   docker compose -f infra/docker-compose.yml up --build -d
+#   python scripts/seed_regulatory_corpus.py --remote http://localhost:8001 --reset
+#
+# Stop local run_dev.ps1 first to avoid port conflicts on 8001–8004.
+
+services:
+  rag-service:
+    build:
+      context: ..
+      dockerfile: services/rag_service/Dockerfile
+    container_name: compliance-rag
+    ports:
+      - "8001:8001"
+    environment:
+      CHROMA_PERSIST_DIR: /app/data/chroma
+      EMBEDDING_MODEL: sentence-transformers/all-MiniLM-L6-v2
+    volumes:
+      - chroma_data:/app/data/chroma
+      - hf_cache:/cache/huggingface
+    restart: unless-stopped
+
+  doc-analyzer-service:
+    build:
+      context: ..
+      dockerfile: services/doc_analyzer_service/Dockerfile
+    container_name: compliance-doc-analyzer
+    ports:
+      - "8002:8002"
+    restart: unless-stopped
+
+  guardrails-service:
+    build:
+      context: ..
+      dockerfile: services/guardrails_service/Dockerfile
+    container_name: compliance-guardrails
+    ports:
+      - "8003:8003"
+    environment:
+      ENABLE_LLM_CRITIC: ${ENABLE_LLM_CRITIC:-false}
+    env_file:
+      - path: ../.env
+        required: false
+    restart: unless-stopped
+
+  langgraph-agent-service:
+    build:
+      context: ..
+      dockerfile: services/langgraph_agent_service/Dockerfile
+    container_name: compliance-langgraph
+    ports:
+      - "8004:8004"
+    environment:
+      RAG_SERVICE_URL: http://rag-service:8001
+      ENABLE_LLM_REASONING: ${ENABLE_LLM_REASONING:-false}
+    env_file:
+      - path: ../.env
+        required: false
+    depends_on:
+      rag-service:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  chroma_data:
+  hf_cache:

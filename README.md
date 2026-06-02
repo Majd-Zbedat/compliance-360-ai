@@ -216,13 +216,32 @@ python scripts\seed_regulatory_corpus.py
 
 ## C. Start Backend Services
 
-Option 1 (recommended):
+### Option 1 — Docker (Layer 3 microservices, ports 8001–8004)
+
+Stop `run_dev.ps1` first if those ports are already in use.
+
+```powershell
+.\scripts\docker_layer3.ps1
+```
+
+Manual equivalent:
+
+```powershell
+docker compose -f infra/docker-compose.yml up --build -d
+python scripts\seed_regulatory_corpus.py --remote http://localhost:8001 --reset
+```
+
+Stop containers: `.\scripts\docker_layer3.ps1 -Down`
+
+The orchestrator (port 8000) and dashboard still run on the host unless you add them to compose later.
+
+### Option 2 — Local Python (all services including orchestrator)
 
 ```powershell
 .\scripts\run_dev.ps1
 ```
 
-Option 2 (manual, 5 terminals):
+### Option 3 — Manual (5 terminals)
 
 ```powershell
 uvicorn services.rag_service.app.main:app --port 8001 --reload

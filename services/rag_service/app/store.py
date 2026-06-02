@@ -34,6 +34,7 @@ class VectorStore:
             settings=ChromaSettings(anonymized_telemetry=False, allow_reset=True),
         )
         self._embedder = _ChromaCompatibleEmbedder(build_embedder())
+        self.embedder_name = getattr(self._embedder._fn, "name", "custom")
 
         self.regulations = self._client.get_or_create_collection(
             name=settings.chroma_regulations_collection,

@@ -66,10 +66,64 @@ stateDiagram-v2
 | 3.4 | langgraph-agent-service | FastAPI, LangGraph StateGraph, rule + LLM reasoning | 8004 |
 | 4 | external | OpenAI / Gemini, local Ollama, ChromaDB on-disk | n/a |
 
-An `n8n/compliance_audit.json` skeleton ships alongside the FastAPI
-orchestrator so the team can flip the audit driver from local FastAPI to
-real n8n by importing the JSON and updating the EC2 URLs. The node order
-in the orchestrator's `pipeline.py` mirrors the JSON exactly.
+Layer 2 in production is **n8n** (`n8n/compliance_audit.json`, port 9090).
+The FastAPI orchestrator (`:8000`) bridges the Next.js dashboard to n8n
+and doc-analyzer; it mirrors the same node order as `pipeline.py`.
+
+## 2b. Layer 3 — EC2 microservices (reference PDF alignment)
+
+The reference architecture names four independent FastAPI services on EC2.
+This project maps them as follows:
+
+| Reference PDF slot | Shipped service | Primary API |
+| --- | --- | --- |
+| RAG | `rag-service` | `POST /query` |
+| **Image Analyser** | **`doc-analyzer-service`** (repurposed) | `POST /analyse` |
+| Guardrails | `guardrails-service` | `POST /check/input`, `POST /check/output` |
+| LangGraph Agent | `langgraph-agent-service` | `POST /agent/run` |
+
+**Image Analyser → doc-analyzer:** the PDF’s CNN/image pipeline slot is
+adapted for **contract PDF clause extraction** (`pdfplumber`, optional OCR,
+heuristic segmenter). The HTTP boundary (`POST /analyse`) is unchanged.
+
+**Deployment topology:** one EC2 host (t3.small / t3.medium+), four
+Docker containers via `infra/docker-compose.yml`. n8n and the orchestrator
+may run on the developer machine or on a separate instance; they call Layer 3
+over HTTP on ports 8001–8004.
+
+```mermaid
+flowchart TB
+    subgraph host ["One EC2 instance (or local Docker Desktop)"]
+        direction TB
+        COMPOSE["docker compose<br/>infra/docker-compose.yml"]
+        RAG["rag-service :8001<br/>sentence-transformers + ChromaDB"]
+        DOC["doc-analyzer-service :8002<br/>Image Analyser slot"]
+        GR["guardrails-service :8003"]
+        LG["langgraph-agent-service :8004"]
+        VOL["volumes: chroma_data, hf_cache"]
+        COMPOSE --> RAG
+        COMPOSE --> DOC
+        COMPOSE --> GR
+        COMPOSE --> LG
+        RAG --> VOL
+    end
+
+    N8N["n8n :9090<br/>rag_query + langgraph_agent tools"]
+    ORCH["orchestrator :8000<br/>PDF → doc-analyzer → n8n"]
+    UI["Next.js :3000"]
+
+    UI --> ORCH
+    ORCH --> DOC
+    ORCH --> N8N
+    N8N --> RAG
+    N8N --> GR
+    N8N --> LG
+    LG --> RAG
+```
+
+Local start: `.\scripts\docker_layer3.ps1`  
+EC2 start: `docker compose -f infra/docker-compose.yml up -d --build` then
+seed with `scripts/seed_regulatory_corpus.py --remote http://localhost:8001 --reset`.
 
 ## 3. Data contracts (`shared/schemas/`)
 
@@ -108,9 +162,12 @@ ambiguous`, `High | Medium | Low`).
 4. **PostgreSQL planned but starting on SQLite.** The orchestrator's
    SQLAlchemy URL is `sqlite:///./data/auditor.db`; swap to
    `postgresql+psycopg://...` to deploy on Postgres without code changes.
-5. **Sentence-transformers optional.** The rag-service ships a
-   hashing-based fallback embedder so the demo runs on Windows without
-   downloading a multi-GB Torch wheel.
+5. **Sentence-transformers in Docker; hashing fallback on bare Windows.**
+   The RAG Docker image pins CPU PyTorch 2.5.1 and loads MiniLM. A
+   hashing-based fallback remains for dev installs without Torch.
+6. **One EC2, four containers.** The reference “four microservices on EC2”
+   is implemented as Docker Compose on a single instance, not four separate
+   VMs (cost and ops trade-off documented for the thesis).
 
 ## 5. Reasoning safety (the "Safety" pillar)
 

@@ -1,0 +1,17 @@
+.git
+.github
+venv
+.venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+webui/node_modules
+webui/.next
+data/chroma
+data/auditor.db
+*.db
+terminals
+.cursor
+assets

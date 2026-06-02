@@ -41,7 +41,11 @@ app.add_middleware(
 @app.get("/healthz", response_model=HealthResponse)
 def healthz() -> HealthResponse:
     store = get_store()
-    return HealthResponse(status="ok", regulations_indexed=store.regulations_count())
+    return HealthResponse(
+        status="ok",
+        regulations_indexed=store.regulations_count(),
+        embedding_backend=store.embedder_name,
+    )
 
 
 @app.post("/query", response_model=QueryResponse)
