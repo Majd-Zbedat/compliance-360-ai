@@ -218,48 +218,48 @@ def list_audits(limit: int = Query(50, ge=1, le=200)) -> list[AuditSummary]:
 def audit_stats() -> StatsResponse:
     with session_scope() as s:
         rows = s.query(AuditRow).all()
-    total = len(rows)
-    if total == 0:
+        total = len(rows)
+        if total == 0:
+            return StatsResponse(
+                total_audits=0,
+                audits_last_7d=0,
+                high_risk_findings=0,
+                medium_risk_findings=0,
+                low_risk_findings=0,
+                avg_findings_per_audit=0.0,
+                rejection_rate=0.0,
+                by_overall_risk={"High": 0, "Medium": 0, "Low": 0, "Unknown": 0},
+            )
+
+        cutoff = datetime.utcnow() - timedelta(days=7)
+        last_7d = sum(1 for r in rows if r.created_at >= cutoff)
+        rejected = sum(1 for r in rows if r.status == "Rejected")
+
+        by_risk = {"High": 0, "Medium": 0, "Low": 0, "Unknown": 0}
+        high_findings = medium_findings = low_findings = 0
+        total_findings = 0
+        for r in rows:
+            by_risk[r.overall_risk] = by_risk.get(r.overall_risk, 0) + 1
+            for f in r.findings or []:
+                total_findings += 1
+                risk = f.get("risk")
+                if risk == "High":
+                    high_findings += 1
+                elif risk == "Medium":
+                    medium_findings += 1
+                elif risk == "Low":
+                    low_findings += 1
+
         return StatsResponse(
-            total_audits=0,
-            audits_last_7d=0,
-            high_risk_findings=0,
-            medium_risk_findings=0,
-            low_risk_findings=0,
-            avg_findings_per_audit=0.0,
-            rejection_rate=0.0,
-            by_overall_risk={"High": 0, "Medium": 0, "Low": 0, "Unknown": 0},
+            total_audits=total,
+            audits_last_7d=last_7d,
+            high_risk_findings=high_findings,
+            medium_risk_findings=medium_findings,
+            low_risk_findings=low_findings,
+            avg_findings_per_audit=round(total_findings / total, 2),
+            rejection_rate=round(rejected / total, 3),
+            by_overall_risk=by_risk,
         )
-
-    cutoff = datetime.utcnow() - timedelta(days=7)
-    last_7d = sum(1 for r in rows if r.created_at >= cutoff)
-    rejected = sum(1 for r in rows if r.status == "Rejected")
-
-    by_risk = {"High": 0, "Medium": 0, "Low": 0, "Unknown": 0}
-    high_findings = medium_findings = low_findings = 0
-    total_findings = 0
-    for r in rows:
-        by_risk[r.overall_risk] = by_risk.get(r.overall_risk, 0) + 1
-        for f in r.findings or []:
-            total_findings += 1
-            risk = f.get("risk")
-            if risk == "High":
-                high_findings += 1
-            elif risk == "Medium":
-                medium_findings += 1
-            elif risk == "Low":
-                low_findings += 1
-
-    return StatsResponse(
-        total_audits=total,
-        audits_last_7d=last_7d,
-        high_risk_findings=high_findings,
-        medium_risk_findings=medium_findings,
-        low_risk_findings=low_findings,
-        avg_findings_per_audit=round(total_findings / total, 2),
-        rejection_rate=round(rejected / total, 3),
-        by_overall_risk=by_risk,
-    )
 
 
 @app.get("/audits/{audit_id}", response_model=AuditDetail)

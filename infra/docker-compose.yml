@@ -20,6 +20,12 @@ services:
     volumes:
       - chroma_data:/app/data/chroma
       - hf_cache:/cache/huggingface
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/healthz')"]
+      interval: 30s
+      timeout: 15s
+      retries: 8
+      start_period: 300s
     restart: unless-stopped
 
   doc-analyzer-service:

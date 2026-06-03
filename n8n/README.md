@@ -17,8 +17,8 @@ The workflow is a guarded contract-audit pipeline:
 2. Run input guardrails
 3. If rejected, return 422 immediately
 4. If accepted, extract metadata with LLM (Node 4 / 4b)
-5. **Run LangGraph Audit** — deterministic HTTP POST to `/agent/run` (bypasses Node 5)
-6. Normalize LangGraph JSON into dashboard report shape (Node 6 / 6c)
+5. **Node 5 — AI Agent** — calls tools `rag_query`, `langgraph_agent`, `doc_analyse` (reference architecture)
+6. Normalize agent JSON into dashboard report shape (Node 6 / 6c)
 7. Run output guardrails
 8. If output flagged, return `human_review_required`
 9. If output passes, route to escalation/reviewer_queue/auto_file
@@ -34,7 +34,7 @@ The n8n flow expects these services running on the host:
 | `rag_service` | 8001 | LangGraph internally (+ optional `rag_query` tool) |
 | `doc_analyzer_service` | 8002 | Optional `doc_analyse` tool (PDF path) |
 | `guardrails_service` | 8003 | Nodes 2 and 7 |
-| `langgraph_agent_service` | 8004 | **Run LangGraph Audit** |
+| `langgraph_agent_service` | 8004 | **`langgraph_agent` tool** on Node 5 AI Agent |
 
 Start all services from the project root:
 
@@ -44,19 +44,57 @@ Start all services from the project root:
 
 ### Docker n8n → host services
 
-The exported JSON uses **literal** URLs (no `$env`) because many local n8n installs block env access in nodes:
+The exported JSON uses **literal** URLs (no `$env`) because many local n8n installs block env access in nodes.
+
+**Local Layer 3** (all services on the laptop):
 
 ```text
 http://host.docker.internal:8003/check/input
 http://host.docker.internal:8004/agent/run
 ```
 
-If n8n runs **natively on Windows** (not Docker), change these to `http://127.0.0.1:<port>`.
+**EC2 Layer 3** (microservices on AWS; n8n still on laptop Docker):
+
+The repo export uses your EC2 public IP, e.g.:
+
+```text
+http://44.223.109.220:8003/check/input
+http://44.223.109.220:8004/agent/run
+```
+
+After changing `n8n/compliance_audit.json`, **re-import** the workflow in n8n:
+
+1. n8n UI → **Workflows** → **Import from File** → select `n8n/compliance_audit.json` (overwrite or delete the old workflow first).
+2. Open the workflow → **Activate**.
+3. Re-attach **Google Gemini** credentials on Node 4 and Node 5.
+4. Confirm tool/HTTP nodes show `44.223.109.220` (or your Elastic IP), not `host.docker.internal`.
+
+If n8n runs **natively on Windows** (not Docker), use `http://127.0.0.1:<port>` for local Layer 3 only.
+
+See `infra/EC2_DEPLOY.md` for full EC2 + laptop wiring.
 
 After import, re-attach your **Google Gemini** credentials on:
 
 - Gemini Chat Model — Extractor (Node 4)
-- Google Gemini Chat Model (Node 6 report chain)
+- Gemini Chat Model — Agent (Node 5)
+
+---
+
+## 2b) Main path (Option A — reference architecture)
+
+```text
+Node 1 → Node 2 → Node 3 → Node 4 → Node 4b → Node 5 (AI Agent) → Node 6 → Node 6c → Node 7 → …
+```
+
+**Tools (dashed lines into Node 5):**
+
+| Tool | Service | Purpose |
+|------|---------|---------|
+| `rag_query` | 8001 `/query` | Agent calls RAG first; `$fromAI('clause_text')` |
+| `langgraph_agent` | 8004 `/agent/run` | Pre-built payload (no 422); agent invokes once |
+| `doc_analyse` | 8002 `/analyse` | Optional PDF segmentation |
+
+Legacy nodes **Build LangGraph Payload**, **Run LangGraph Audit**, **RAG Regulatory Query** (HTTP) remain in the JSON export but are **not** on the main path.
 
 ---
 
@@ -87,13 +125,6 @@ Expected body:
 - **Type:** `webhook`
 - **Purpose:** Entry point from UI/backend.
 - **Output:** Original request body under `$json.body`.
-
-### Run LangGraph Audit
-- **Type:** `httpRequest`
-- **Calls:** `POST http://host.docker.internal:8004/agent/run`
-- **Purpose:** Main audit engine — builds a fixed JSON body from webhook `description` and Node 4b metadata (no LLM tool calls, avoids 422 validation errors).
-- **Body:** `audit_id`, `contract_id`, single `clauses[]` entry, `jurisdiction`, `contract_type`.
-- **Output:** LangGraph response with `findings`, `overall_risk`, `report_markdown`, `trace`.
 
 ### Node 2 — Guardrails Input Check
 - **Type:** `httpRequest`
@@ -143,31 +174,41 @@ Expected body:
 - **Purpose:** LLM backend for Node 5 agent.
 - **Connection:** `ai_languageModel` -> Node 5.
 
-### Node 5 — AI Agent (optional / bypassed)
-- **Type:** `langchain agent`
-- **Status:** **Not on the main execution path.** Node 5 remains on the canvas for future multi-tool orchestration.
-- **Why bypassed:** The `langgraph_agent` AI tool often sent malformed `clauses` payloads (HTTP 422). **Run LangGraph Audit** replaces it with a deterministic HTTP node.
+### Node 5 — AI Agent (main audit orchestrator)
+- **Type:** `agent` (Tools Agent)
+- **Model:** Gemini Chat Model — Agent
+- **Tools:** `rag_query`, `langgraph_agent`, `doc_analyse` (dashed `ai_tool` connections)
+- **Flow:** Agent calls `rag_query` first, then `langgraph_agent` once, then returns structured JSON
+- **langgraph_agent body:** Pre-built expression from webhook + Node 4b (avoids HTTP 422)
 
 ### rag_query (tool)
 - **Type:** `toolHttpRequest`
-- **Calls:** `POST {RAG_URL}/query`
-- **Status:** Present but **not connected** to Node 5.
+- **Calls:** `POST http://host.docker.internal:8001/query`
+- **Body:** `{ text: $fromAI('clause_text'), top_k: 5 }`
+- **Purpose:** Retrieve similar regulations before LangGraph runs.
 
 ### doc_analyse (tool)
 - **Type:** `toolHttpRequest`
-- **Calls:** `POST {DOC_ANALYZER_URL}/analyse`
-- **Status:** Present but **not connected** to Node 5.
+- **Calls:** `POST http://host.docker.internal:8002/analyse`
+- **Purpose:** Optional PDF segmentation when webhook includes `document_b64`.
 
 ### langgraph_agent (tool)
 - **Type:** `toolHttpRequest`
 - **Calls:** `POST http://host.docker.internal:8004/agent/run`
-- **Status:** Wired to Node 5 only; **not used** on the active path.
+- **Body:** Pre-built from `$execution.id`, webhook description, Node 4b metadata (no `$fromAI` for clauses)
+- **Purpose:** Deterministic LangGraph audit; invoke once per execution.
+
+### Run LangGraph Audit (legacy — not on main path)
+- **Type:** `httpRequest`
+- **Status:** Bypassed when using Option A. Kept in export for fallback experiments.
+
+### RAG Regulatory Query (legacy HTTP — not on main path)
+- **Status:** Replaced by **`rag_query` tool** on Node 5.
 
 ### Node 6 — Final Report LLM Chain
-- **Type:** `chainLlm`
-- **Purpose:** Map **Run LangGraph Audit** JSON into the dashboard report schema (`findings`, `routing_decision`, `overall_risk`, etc.).
-- **Input expression:** `$('Run LangGraph Audit').item.json`
-- **Model backend:** Google Gemini Chat Model node.
+- **Type:** `code`
+- **Purpose:** Parse Node 5 agent output into the dashboard report schema (`findings`, `routing_decision`, `overall_risk`, etc.).
+- **Input:** `$('Node 5 — AI Agent').item.json`
 
 ### Node 6b — Parse report JSON
 - **Type:** `outputParserStructured`
@@ -234,7 +275,7 @@ Main graph:
 
 ```text
 Node 1 -> Node 2 -> Node 3
-Node 3 (true)  -> Node 4 -> Node 4b -> Run LangGraph Audit -> Node 6 -> Node 6c -> Node 7 -> Node 7b
+Node 3 (true)  -> Node 4 -> Node 4b -> Node 5 -> Node 6 -> Node 6c -> Node 7 -> Node 7b
 Node 3 (false) -> Node 3b
 Node 7b (true) -> Node 8
 Node 7b (false)-> Node 7d
@@ -243,14 +284,15 @@ Node 8 output1 -> Node 8b
 Node 8 fallback-> Node 8c
 ```
 
-Model edges (active path):
+Tool edges (dashed into Node 5):
 
 ```text
-Gemini Extractor model -> Node 4
-Google Gemini model    -> Node 6
+rag_query        -> Node 5 (ai_tool)
+langgraph_agent  -> Node 5 (ai_tool)
+doc_analyse      -> Node 5 (ai_tool)
+Gemini Agent model -> Node 5 (ai_languageModel)
+Gemini Extractor model -> Node 4 (ai_languageModel)
 ```
-
-Optional (not on main path): Node 5 + `langgraph_agent`, `rag_query`, `doc_analyse` tools.
 
 ---
 
@@ -261,13 +303,14 @@ If you build manually instead of import:
 1. Add Nodes 1, 2, 3, 3b and connect linear + reject branch.
 2. Add Node 4 + Gemini Extractor model; connect model to Node 4.
 3. Add Node 4b and connect Node 4 -> Node 4b.
-4. Add **Run LangGraph Audit** HTTP node; connect Node 4b -> Run LangGraph Audit -> Node 6.
-5. Add Node 6 + Gemini model + Node 6c; point Node 6 prompt at `$('Run LangGraph Audit').item.json`.
-6. Add Nodes 7 and 7b; connect Node 6c -> 7 -> 7b.
-7. Add Node 7d and connect Node 7b false -> Node 7d.
-8. Add Node 8 and connect Node 7b true -> Node 8.
-9. Add Nodes 8a/8b/8c and connect outputs 0/1/fallback from Node 8.
-10. (Optional) Add Node 7c and wire as needed for external review side effects.
+4. Add **Node 5 AI Agent** + Gemini Agent model; connect Node 4b -> Node 5 -> Node 6.
+5. Add tool nodes `rag_query`, `langgraph_agent`, `doc_analyse`; connect each to Node 5 **Tool** port (dashed).
+6. Configure `langgraph_agent` jsonBody with pre-built payload (see `compliance_audit.json`).
+7. Add Node 6 (Code) + Node 6c; Node 6 reads `$('Node 5 — AI Agent').item.json`.
+8. Add Nodes 7 and 7b; connect Node 6c -> 7 -> 7b.
+9. Add Node 7d and connect Node 7b false -> Node 7d.
+10. Add Node 8 and connect Node 7b true -> Node 8.
+11. Add Nodes 8a/8b/8c and connect outputs 0/1/fallback from Node 8.
 
 ---
 
@@ -281,7 +324,7 @@ $body = @{
 } | ConvertTo-Json
 
 Invoke-RestMethod `
-  -Uri "http://localhost:5678/webhook/compliance-audit" `
+  -Uri "http://localhost:9090/webhook/compliance-audit" `
   -Method POST `
   -ContentType "application/json" `
   -Body $body
@@ -291,28 +334,22 @@ Invoke-RestMethod `
 
 ## 8) Common Pitfalls
 
-1. **Gemini credentials not set after import** -> Node 4 or Node 6 fail immediately.
+1. **Gemini credentials not set after import** -> Node 4 or Node 5 fail immediately.
 2. **Wrong service hostnames in Docker** -> use `host.docker.internal` (already in JSON).
 3. **`description` too short** -> guardrails input may fail; use full contract paragraphs for demos.
-4. **Re-enabling Node 5 `langgraph_agent` tool** -> likely HTTP 422 unless tool body uses `$fromAI(..., 'json')` for `clauses`.
-5. **`doc_analyse` / `rag_query`** -> present as tools but not on main path; add HTTP nodes when wiring PDF upload.
+4. **LangGraph HTTP 422** -> do not let the agent build `clauses` via `$fromAI`; use pre-built `langgraph_agent` jsonBody in the tool node.
+5. **RAG as main-path HTTP** -> wrong for Option A; wire `rag_query` to Node 5 Tool port instead.
 6. **Human review webhook unavailable** -> flow still returns Node 7d response (designed fallback).
+7. **Legacy Run LangGraph path** -> if re-enabling bypass HTTP nodes, use **Build LangGraph Payload** + `={{ $json }}` body to avoid newline JSON errors.
 
 ---
 
 ## 9) Suggested Next Improvements
 
-1. Add HTTP `doc_analyse` before Run LangGraph when webhook accepts `document_b64` (PDF upload).
-2. Add HTTP `rag_query` before Node 6 for extra `similar_regulations` in the report.
-3. Wire orchestrator `POST /audits` to this webhook for frontend integration.
-
-   The orchestrator (port **8000**) is configured via `N8N_WEBHOOK_URL` (default
-   `http://localhost:5678/webhook/compliance-audit`). The Next.js UI posts to
-   `POST /audits` unchanged; the orchestrator extracts PDF/text, calls n8n,
-   and persists results to SQLite.
-
-   Verify: `curl http://localhost:8000/healthz` → `"pipeline_driver": "n8n"`.
-
+1. Wire `doc_analyse` for PDF uploads when webhook sends `document_b64`.
+2. Multi-clause PDFs: expand `langgraph_agent` payload to pass all clauses from doc-analyzer.
+3. Orchestrator already posts to this webhook via `N8N_WEBHOOK_URL` (port **9090**),
+   persists results to SQLite. Verify: `curl http://localhost:8000/healthz` → `"pipeline_driver": "n8n"`.
    To fall back to the Python pipeline, set `N8N_WEBHOOK_URL=` (empty) in `.env`.
 4. Send Node 7b false path to Node 7c first, then Node 7d, if you require guaranteed human-review notification.
 5. Add webhook auth/signature for production.
@@ -337,7 +374,7 @@ Goal: confirm a contract uploaded in the dashboard flows through the orchestrato
 3. **Point the orchestrator at n8n** — in the repo `.env`:
 
    ```text
-   N8N_WEBHOOK_URL=http://localhost:5678/webhook/compliance-audit
+   N8N_WEBHOOK_URL=http://localhost:9090/webhook/compliance-audit
    ```
 
    Confirm: `curl http://localhost:8000/healthz` → `"pipeline_driver": "n8n"`.

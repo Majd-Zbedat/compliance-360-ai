@@ -4,4 +4,7 @@ pydantic==2.9.2
 pydantic-settings==2.6.0
 python-dotenv==1.0.1
 chromadb==0.5.20
+# Pinned stack avoids torch "meta tensor" load failures in Docker/EC2 CPU images.
+transformers==4.44.2
+accelerate==0.34.2
 sentence-transformers==3.2.1

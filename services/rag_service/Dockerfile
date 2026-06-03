@@ -18,11 +18,12 @@ RUN pip install --no-cache-dir "torch==2.5.1" --index-url https://download.pytor
 
 COPY services/rag_service /app/services/rag_service
 
-RUN mkdir -p /app/data/chroma
+RUN mkdir -p /app/data/chroma \
+    && python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2'); print('embedding model ok')"
 
 EXPOSE 8001
 
-HEALTHCHECK --interval=30s --timeout=10s --retries=5 --start-period=120s \
+HEALTHCHECK --interval=30s --timeout=15s --retries=8 --start-period=300s \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/healthz')"
 
 CMD ["python", "-m", "uvicorn", "services.rag_service.app.main:app", "--host", "0.0.0.0", "--port", "8001"]
