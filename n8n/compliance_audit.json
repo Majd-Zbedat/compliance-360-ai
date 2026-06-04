@@ -21,7 +21,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=http://44.223.109.220:8003/check/input",
+        "url": "=http://54.87.42.101:8003/check/input",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -179,7 +179,7 @@
       "parameters": {
         "toolDescription": "Queries the regulatory RAG knowledge base (Layer 3, port 8001). Returns matches[] with source, article, score and an insight string. Call this BEFORE langgraph_agent. No parameters required — the contract text is pre-loaded from the webhook.",
         "method": "POST",
-        "url": "http://44.223.109.220:8001/query",
+        "url": "http://54.87.42.101:8001/query",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ text: String($('Node 1 — Webhook Trigger').item.json.body.description || ''), top_k: 5 }) }}"
@@ -197,7 +197,7 @@
       "parameters": {
         "toolDescription": "Segments a PDF or document into contract clauses. Parameters: contract_id, filename, document_b64 (base64-encoded file).",
         "method": "POST",
-        "url": "=http://44.223.109.220:8002/analyse",
+        "url": "=http://54.87.42.101:8002/analyse",
         "sendBody": true,
         "parametersBody": {
           "values": [
@@ -226,10 +226,10 @@
       "parameters": {
         "toolDescription": "Runs the LangGraph compliance audit (Layer 3, port 8004). Pass the 'input' argument set to the string 'ok'; the request body is pre-built from the workflow. Returns overall_risk, findings[], report_markdown, trace.",
         "method": "POST",
-        "url": "http://44.223.109.220:8004/agent/run",
+        "url": "http://54.87.42.101:8004/agent/run",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ audit_id: 'aud_' + $execution.id, contract_id: 'ctr_' + $execution.id, clauses: [{ id: 'clause_1', contract_id: 'ctr_' + $execution.id, section: 'Body', text: String($('Node 1 — Webhook Trigger').item.json.body.description || ''), clause_type: 'other' }], jurisdiction: String(($('Node 4b — Parse extracted JSON').item.json.output || {}).jurisdiction || 'unknown'), contract_type: String(($('Node 4b — Parse extracted JSON').item.json.output || {}).contract_type || 'other') }) }}"
+        "jsonBody": "={{ JSON.stringify({ audit_id: 'aud_' + $execution.id, contract_id: 'ctr_' + $execution.id, clauses: ($('Node 1 — Webhook Trigger').item.json.body.clauses && $('Node 1 — Webhook Trigger').item.json.body.clauses.length) ? $('Node 1 — Webhook Trigger').item.json.body.clauses : [{ id: 'clause_1', contract_id: 'ctr_' + $execution.id, section: 'Body', text: String($('Node 1 — Webhook Trigger').item.json.body.description || ''), clause_type: 'other' }], jurisdiction: String(($('Node 4b — Parse extracted JSON').item.json.output || {}).jurisdiction || 'unknown'), contract_type: String(($('Node 4b — Parse extracted JSON').item.json.output || {}).contract_type || 'other') }) }}"
       },
       "id": "5845a218-14e9-4070-977a-f8f8a925e43b",
       "name": "langgraph_agent",
@@ -293,7 +293,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "=http://44.223.109.220:8003/check/output",
+        "url": "=http://54.87.42.101:8003/check/output",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -552,7 +552,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://44.223.109.220:8001/query",
+        "url": "http://54.87.42.101:8001/query",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -590,7 +590,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const webhook = $('Node 1 — Webhook Trigger').item.json.body || {};\nconst ext = ($('Node 4b — Parse extracted JSON').item.json.output || {});\nconst execId = $execution.id;\nconst text = String(webhook.description || '');\n\nreturn [{\n  json: {\n    audit_id: 'aud_' + execId,\n    contract_id: 'ctr_' + execId,\n    clauses: [{\n      id: 'clause_1',\n      contract_id: 'ctr_' + execId,\n      section: 'Body',\n      text,\n      clause_type: 'other'\n    }],\n    jurisdiction: String(ext.jurisdiction || 'unknown'),\n    contract_type: String(ext.contract_type || 'other')\n  }\n}];"
+        "jsCode": "const webhook = $('Node 1 — Webhook Trigger').item.json.body || {};\nconst ext = ($('Node 4b — Parse extracted JSON').item.json.output || {});\nconst execId = $execution.id;\nconst text = String(webhook.description || '');\nconst segmented = Array.isArray(webhook.clauses) && webhook.clauses.length ? webhook.clauses : [{\n  id: 'clause_1',\n  contract_id: 'ctr_' + execId,\n  section: 'Body',\n  text,\n  clause_type: 'other'\n}];\n\nreturn [{\n  json: {\n    audit_id: 'aud_' + execId,\n    contract_id: 'ctr_' + execId,\n    clauses: segmented,\n    jurisdiction: String(ext.jurisdiction || 'unknown'),\n    contract_type: String(ext.contract_type || 'other')\n  }\n}];"
       },
       "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
       "name": "Build LangGraph Payload",
@@ -604,7 +604,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://44.223.109.220:8004/agent/run",
+        "url": "http://54.87.42.101:8004/agent/run",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [

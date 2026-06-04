@@ -47,6 +47,33 @@ class FindingOut(BaseModel):
     confidence: float
     safe_justification: Optional[str] = None
     recommendation: Optional[str] = None
+    clause_section: Optional[str] = None
+    clause_excerpt: Optional[str] = None
+    clause_type: Optional[str] = None
+    regulatory_title: Optional[str] = None
+    regulatory_excerpt: Optional[str] = None
+
+
+class ContractMetadataOut(BaseModel):
+    contract_number: Optional[str] = None
+    effective_date: Optional[str] = None
+    expiry_date: Optional[str] = None
+    jurisdiction: Optional[str] = None
+    contract_value: Optional[str] = None
+    payment_terms: Optional[str] = None
+    contract_manager: Optional[str] = None
+    status: Optional[str] = None
+    party_a: Optional[str] = None
+    party_a_address: Optional[str] = None
+    party_a_regulated_by: Optional[str] = None
+    party_a_lei: Optional[str] = None
+    party_b: Optional[str] = None
+    party_b_address: Optional[str] = None
+    party_b_regulated_by: Optional[str] = None
+    party_b_lei: Optional[str] = None
+    party_b_abn: Optional[str] = None
+    term: Optional[str] = None
+    governing_law: Optional[str] = None
 
 
 class ClauseOut(BaseModel):
@@ -62,6 +89,7 @@ class AuditSummary(BaseModel):
     id: str
     filename: str
     status: str
+    review_status: Optional[str] = None  # Approved | Pending | Rejected | null
     overall_risk: str
     findings_count: int
     high_count: int
@@ -75,6 +103,7 @@ class AuditDetail(BaseModel):
     id: str
     filename: str
     status: str
+    review_status: Optional[str] = None
     overall_risk: str
     parties: list[str] = []
     jurisdiction: Optional[str] = None
@@ -87,6 +116,7 @@ class AuditDetail(BaseModel):
     input_guardrail_passed: bool = True
     output_guardrail_passed: bool = True
     rejection_reason: Optional[str] = None
+    contract_metadata: Optional[ContractMetadataOut] = None
     created_at: datetime
     updated_at: datetime
 
@@ -100,6 +130,15 @@ class StatsResponse(BaseModel):
     avg_findings_per_audit: float
     rejection_rate: float
     by_overall_risk: dict[str, int]
+    regulation_count: int = 0
+    regulations_uploaded: int = 0
+    pending_reviews: int = 0
+    compliance_score: int = 0
+    high_risk_delta_7d: int = 0
+    pending_reviews_last_7d: int = 0
+    compliance_score_delta: int = 0
+    monthly_compliance: list[dict[str, int | str]] = Field(default_factory=list)
+    last_audit_at: Optional[datetime] = None
 
 
 class RegulationOut(BaseModel):
@@ -170,12 +209,37 @@ class ContractListResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
+class PortfolioHitOut(BaseModel):
+    id: str
+    category: str
+    title: Optional[str] = None
+    preview: str = ""
+    risk_level: Optional[str] = None
+    compliance_standard: Optional[str] = None
+
+
+class PortfolioStatsOut(BaseModel):
+    category: str
+    label: str
+    total_contracts: int
+    active_contracts: Optional[int] = None
+    by_status: dict[str, int] = Field(default_factory=dict)
+    by_risk: dict[str, int] = Field(default_factory=dict)
+    summary_kpis: dict[str, str] = Field(default_factory=dict)
+
+
 class ChatRequest(BaseModel):
     question: str = Field(..., description="Free-text compliance question")
     top_k: int = Field(5, ge=1, le=20, description="Number of clauses to retrieve")
     sources: Optional[list[str]] = Field(
         default=None,
         description="Restrict retrieval to specific regulatory sources, e.g. ['GDPR']",
+    )
+    contract_category: Optional[str] = Field(
+        None, description="Portfolio filter: bank | cybersecurity | ai"
+    )
+    audit_id: Optional[str] = Field(
+        None, description="Optional audit id to include uploaded clause context"
     )
 
 
@@ -191,4 +255,8 @@ class ChatSource(BaseModel):
 class ChatResponse(BaseModel):
     question: str
     answer: str
-    sources: list[ChatSource]
+    sources: list[ChatSource] = Field(default_factory=list)
+    portfolio_hits: list[PortfolioHitOut] = Field(default_factory=list)
+    portfolio_stats: Optional[PortfolioStatsOut] = None
+    intent: str = "regulatory"
+    refused: bool = False

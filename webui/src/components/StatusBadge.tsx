@@ -11,7 +11,10 @@ export type DocStatus =
   | "failed"
   | "Done"
   | "Rejected"
-  | "Drafting";
+  | "Drafting"
+  | "Approved"
+  | "Pending"
+  | "unreviewed";
 
 const config: Record<
   string,
@@ -27,7 +30,11 @@ const config: Record<
   Drafting: { label: "Processing", bg: "#EFF6FF", text: "#1D4ED8", dot: "#3B82F6" },
   processing: { label: "Processing", bg: "#EFF6FF", text: "#1D4ED8", dot: "#3B82F6" },
   failed: { label: "Failed", bg: "#FEF2F2", text: "#991B1B", dot: "#EF4444" },
-  Rejected: { label: "Failed", bg: "#FEF2F2", text: "#991B1B", dot: "#EF4444" },
+  Rejected: { label: "Rejected", bg: "#FEF2F2", text: "#991B1B", dot: "#EF4444" },
+  // Human review decisions
+  Approved: { label: "Approved", bg: "#F0F9E8", text: "#166534", dot: "#16A34A" },
+  Pending:  { label: "Pending Review", bg: "#FFFBEB", text: "#92400E", dot: "#F59E0B" },
+  unreviewed: { label: "Unreviewed", bg: "#F1F5F9", text: "#64748B", dot: "#CBD5E1" },
 };
 
 export function StatusBadge({ status }: { status: string }) {

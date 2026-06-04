@@ -16,6 +16,8 @@ import httpx
 from .config import settings
 from .db import AuditRow, session_scope
 from .pipeline import PipelineResult, _decoded_text_from_b64, _persist_rejection, _post, run_pipeline
+from .audit_enrichment import apply_finding_clause_fields
+from .rag_contracts import sync_audit_to_rag
 from .recommendations import recommend
 from .schemas import AuditCreateRequest
 
@@ -42,7 +44,10 @@ def _audit_context_block(req: AuditCreateRequest) -> str:
     return "[Audit context]\n" + "\n".join(lines) + "\n\n[Contract text]\n"
 
 
-def _normalize_finding(raw: dict[str, Any]) -> dict[str, Any]:
+def _normalize_finding(
+    raw: dict[str, Any],
+    clauses: Optional[list[dict[str, Any]]] = None,
+) -> dict[str, Any]:
     out = {
         "contract_clause_id": raw.get("contract_clause_id")
         or raw.get("clause_id")
@@ -58,6 +63,8 @@ def _normalize_finding(raw: dict[str, Any]) -> dict[str, Any]:
         "confidence": float(raw.get("confidence") or 0.0),
     }
     out["recommendation"] = raw.get("recommendation") or recommend(out)
+    if clauses:
+        out = apply_finding_clause_fields(out, clauses)
     return out
 
 
@@ -161,7 +168,7 @@ def _persist_success(
 ) -> PipelineResult:
     findings_raw = report.get("findings") or []
     findings_out = [
-        _normalize_finding(f) for f in findings_raw if isinstance(f, dict)
+        _normalize_finding(f, clauses) for f in findings_raw if isinstance(f, dict)
     ]
     overall_risk = str(report.get("overall_risk") or "Unknown")
     report_md = _build_report_markdown(data, report)
@@ -227,6 +234,9 @@ async def run_n8n_pipeline(req: AuditCreateRequest) -> PipelineResult:
             "description": (_audit_context_block(req) + description)[:50_000],
             "filename": req.filename,
             "requester": req.requester or "Web UI",
+            "clauses": clauses,
+            "contract_category": req.contract_category,
+            "regulatory_sources": req.regulatory_sources or [],
         }
 
         try:
@@ -290,7 +300,7 @@ async def run_n8n_pipeline(req: AuditCreateRequest) -> PipelineResult:
         if data.get("human_review_required"):
             report = _normalize_report(data.get("report"))
             flag = data.get("flag_reason") or "Output flagged for human review."
-            return _persist_success(
+            result = _persist_success(
                 audit_id=audit_id,
                 req=req,
                 now=now,
@@ -302,6 +312,16 @@ async def run_n8n_pipeline(req: AuditCreateRequest) -> PipelineResult:
                 output_passed=False,
                 rejection_reason=str(flag),
             )
+            await sync_audit_to_rag(
+                audit_id,
+                req.filename,
+                clauses,
+                report.get("findings") or [],
+                parties=report.get("parties") or req.parties,
+                jurisdiction=report.get("jurisdiction") or req.jurisdiction,
+                overall_risk=report.get("overall_risk"),
+            )
+            return result
 
         if not data.get("success"):
             reason = str(data.get("message") or "n8n workflow returned success=false.")
@@ -314,7 +334,7 @@ async def run_n8n_pipeline(req: AuditCreateRequest) -> PipelineResult:
             )
 
         report = _normalize_report(data.get("report"))
-        return _persist_success(
+        result = _persist_success(
             audit_id=audit_id,
             req=req,
             now=now,
@@ -326,3 +346,13 @@ async def run_n8n_pipeline(req: AuditCreateRequest) -> PipelineResult:
             output_passed=True,
             rejection_reason=None,
         )
+        await sync_audit_to_rag(
+            audit_id,
+            req.filename,
+            clauses,
+            report.get("findings") or [],
+            parties=report.get("parties") or req.parties,
+            jurisdiction=report.get("jurisdiction") or req.jurisdiction,
+            overall_risk=report.get("overall_risk"),
+        )
+        return result

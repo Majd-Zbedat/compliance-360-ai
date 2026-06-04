@@ -108,6 +108,21 @@ def segment(
         return [_make_clause(contract_id, "Preamble", body, page=_page_for_offset(0, page_offsets))]
 
     clauses: list[dict] = []
+
+    # Capture the preamble — everything before the first heading. This is where
+    # cover-page metadata tables live (Contract ID, dates, parties, status…),
+    # which would otherwise be discarded and never reach the auditor.
+    preamble = "\n".join(lines[: headings[0].line_idx]).strip()
+    if len(preamble) >= min_chars:
+        clauses.append(
+            _make_clause(
+                contract_id,
+                "Document Header",
+                preamble,
+                page=_page_for_offset(0, page_offsets),
+            )
+        )
+
     for idx, heading in enumerate(headings):
         body_start_line = heading.line_idx + 1
         body_end_line = headings[idx + 1].line_idx if idx + 1 < len(headings) else len(lines)

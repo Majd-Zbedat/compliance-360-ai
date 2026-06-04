@@ -12,6 +12,7 @@ export interface AuditSummary {
   id: string;
   filename: string;
   status: string;
+  review_status?: string | null;  // Approved | Pending | Rejected | null
   overall_risk: string;
   findings_count: number;
   high_count: number;
@@ -32,6 +33,33 @@ export interface Finding {
   confidence: number;
   safe_justification?: string | null;
   recommendation?: string | null;
+  clause_section?: string | null;
+  clause_excerpt?: string | null;
+  clause_type?: string | null;
+  regulatory_title?: string | null;
+  regulatory_excerpt?: string | null;
+}
+
+export interface ContractMetadata {
+  contract_number?: string | null;
+  effective_date?: string | null;
+  expiry_date?: string | null;
+  jurisdiction?: string | null;
+  contract_value?: string | null;
+  payment_terms?: string | null;
+  contract_manager?: string | null;
+  status?: string | null;
+  party_a?: string | null;
+  party_a_address?: string | null;
+  party_a_regulated_by?: string | null;
+  party_a_lei?: string | null;
+  party_b?: string | null;
+  party_b_address?: string | null;
+  party_b_regulated_by?: string | null;
+  party_b_lei?: string | null;
+  party_b_abn?: string | null;
+  term?: string | null;
+  governing_law?: string | null;
 }
 
 export interface Clause {
@@ -47,6 +75,7 @@ export interface AuditDetail {
   id: string;
   filename: string;
   status: string;
+  review_status?: string | null;
   overall_risk: string;
   parties: string[];
   jurisdiction?: string | null;
@@ -59,6 +88,7 @@ export interface AuditDetail {
   input_guardrail_passed: boolean;
   output_guardrail_passed: boolean;
   rejection_reason?: string | null;
+  contract_metadata?: ContractMetadata | null;
   created_at: string;
   updated_at: string;
 }
@@ -72,6 +102,15 @@ export interface Stats {
   avg_findings_per_audit: number;
   rejection_rate: number;
   by_overall_risk: Record<string, number>;
+  regulation_count?: number;
+  regulations_uploaded?: number;
+  pending_reviews?: number;
+  compliance_score?: number;
+  high_risk_delta_7d?: number;
+  pending_reviews_last_7d?: number;
+  compliance_score_delta?: number;
+  monthly_compliance?: { month: string; score: number }[];
+  last_audit_at?: string | null;
 }
 
 export interface Regulation {
@@ -100,10 +139,33 @@ export interface ChatSource {
   score: number;
 }
 
+export interface PortfolioHit {
+  id: string;
+  category: string;
+  title?: string | null;
+  preview: string;
+  risk_level?: string | null;
+  compliance_standard?: string | null;
+}
+
+export interface PortfolioStats {
+  category: string;
+  label: string;
+  total_contracts: number;
+  active_contracts?: number | null;
+  by_status: Record<string, number>;
+  by_risk: Record<string, number>;
+  summary_kpis: Record<string, string>;
+}
+
 export interface ChatResponse {
   question: string;
   answer: string;
   sources: ChatSource[];
+  portfolio_hits?: PortfolioHit[];
+  portfolio_stats?: PortfolioStats | null;
+  intent?: string;
+  refused?: boolean;
 }
 
 export interface CreateAuditResponse {
@@ -183,11 +245,19 @@ export const api = {
     const qs = params.toString();
     return request<Regulation[]>(`/regulations${qs ? `?${qs}` : ""}`);
   },
-  chat: (payload: { question: string; top_k?: number; sources?: string[] }) =>
+  chat: (payload: {
+    question: string;
+    top_k?: number;
+    sources?: string[];
+    contract_category?: string;
+    audit_id?: string;
+  }) =>
     request<ChatResponse>("/chat", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  portfolioStats: (category: string) =>
+    request<PortfolioStats>(`/contracts/portfolio-stats?category=${encodeURIComponent(category)}`),
   createAudit: (payload: {
     filename?: string;
     document_b64?: string;
@@ -204,6 +274,11 @@ export const api = {
     request<CreateAuditResponse>("/audits", {
       method: "POST",
       body: JSON.stringify(payload),
+    }),
+  updateReviewStatus: (auditId: string, reviewStatus: "Approved" | "Pending" | "Rejected") =>
+    request<{ id: string; review_status: string }>(`/audits/${auditId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ review_status: reviewStatus }),
     }),
   addRegulation: (payload: {
     source: string;

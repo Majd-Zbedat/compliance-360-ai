@@ -217,6 +217,55 @@ def split_records(items: list[dict], seed: int, train: float, val: float):
     return train_items, val_items, test_items
 
 
+def export_portfolio_summaries(items: list[dict]) -> None:
+    """Write per-category KPIs (jsonl aggregates; Excel summary sheets when present)."""
+    summaries: dict[str, dict] = {}
+    for category in sorted({i["category"] for i in items}):
+        cat_items = [i for i in items if i["category"] == category]
+        by_status: dict[str, int] = {}
+        for it in cat_items:
+            raw = (it.get("metadata") or {}).get("raw") or {}
+            st = _clean(raw.get("Status") or raw.get("status")) or "Unknown"
+            by_status[st] = by_status.get(st, 0) + 1
+        active = sum(
+            c for st, c in by_status.items() if "active" in st.lower()
+        )
+        kpis = {"Total contracts in dataset": str(len(cat_items))}
+        if active:
+            kpis["Total Active Contracts"] = str(active)
+
+        for filename, cat in FILE_TO_CATEGORY.items():
+            if cat != category:
+                continue
+            xlsx_path = RAW_DIR / filename
+            if not xlsx_path.exists():
+                continue
+            try:
+                xls = pd.ExcelFile(xlsx_path)
+                for sheet in xls.sheet_names:
+                    if not _is_summary_sheet(sheet, pd.read_excel(xlsx_path, sheet_name=sheet, nrows=5)):
+                        continue
+                    df = pd.read_excel(xlsx_path, sheet_name=sheet)
+                    for _, row in df.iterrows():
+                        label = _clean(row.iloc[0]) if len(row) else ""
+                        val = _clean(row.iloc[1]) if len(row) > 1 else ""
+                        if label and val:
+                            kpis[label] = val
+            except Exception:
+                pass
+
+        summaries[category] = {
+            "active_contracts": active,
+            "kpis": kpis,
+        }
+
+    out_path = NORM_DIR.parent / "portfolio_summaries.json"
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    with out_path.open("w", encoding="utf-8") as fh:
+        json.dump(summaries, fh, ensure_ascii=False, indent=2)
+    print(f"[import] portfolio summaries -> {out_path}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--min-chars", type=int, default=40)
@@ -251,6 +300,8 @@ def main() -> None:
     write_jsonl(SPLIT_DIR / "train.jsonl", train_items)
     write_jsonl(SPLIT_DIR / "val.jsonl", val_items)
     write_jsonl(SPLIT_DIR / "test.jsonl", test_items)
+
+    export_portfolio_summaries(items)
 
     print("[import] done")
     print(f"[import] total: {len(items)}")

@@ -83,6 +83,64 @@ class VectorStore:
         )
         return _flatten_query(result)
 
+    def query_contracts(
+        self,
+        text: str,
+        top_k: int = 5,
+        *,
+        category: Optional[str] = None,
+        audit_id: Optional[str] = None,
+        include_portfolio: bool = True,
+    ) -> list[dict[str, Any]]:
+        """Vector search over indexed portfolio rows and uploaded audit clauses."""
+        if self.contracts.count() == 0:
+            return []
+
+        merged: list[dict[str, Any]] = []
+        seen: set[str] = set()
+
+        def _run(where: Optional[dict]) -> None:
+            nonlocal merged
+            if len(merged) >= top_k:
+                return
+            n = min(top_k, top_k - len(merged) + 2)
+            result = self.contracts.query(
+                query_texts=[text],
+                n_results=n,
+                where=where,
+            )
+            for row in _flatten_query(result):
+                rid = row["id"]
+                if rid in seen:
+                    continue
+                seen.add(rid)
+                merged.append(row)
+                if len(merged) >= top_k:
+                    break
+
+        if audit_id:
+            _run({"audit_id": audit_id})
+        if include_portfolio:
+            if category in ("bank", "cybersecurity", "ai"):
+                _run({"doc_type": "portfolio", "category": category})
+            else:
+                _run({"doc_type": "portfolio"})
+        if not audit_id and not include_portfolio:
+            _run(None)
+
+        merged.sort(key=lambda r: float(r.get("score") or 0.0), reverse=True)
+        return merged[:top_k]
+
+    def contracts_count(self) -> int:
+        return self.contracts.count()
+
+    def delete_audit_contracts(self, audit_id: str) -> None:
+        """Remove prior chunks for an audit before re-indexing."""
+        try:
+            self.contracts.delete(where={"audit_id": audit_id})
+        except Exception:
+            pass
+
     def regulations_count(self) -> int:
         return self.regulations.count()
 

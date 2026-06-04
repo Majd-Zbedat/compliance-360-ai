@@ -153,7 +153,7 @@ Then re-seed from the laptop (section 4).
 
 | Item | Value |
 |------|--------|
-| Public IP | `44.223.109.220` |
+| Elastic IP | `54.87.42.101` (stable — survives stop/start) |
 | SSH user | `ubuntu` |
 | Repo path on instance | `~/FinalProject` |
 

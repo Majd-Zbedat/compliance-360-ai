@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { formatDateTime } from "@/lib/utils";
 import { ComplianceReportCard } from "@/components/ComplianceReportCard";
+import { ReviewDecisionBar } from "@/components/ReviewDecisionBar";
 import { FindingsTable } from "./findings-table";
 
 export const dynamic = "force-dynamic";
@@ -54,6 +55,8 @@ export default async function AuditDetailPage({ params }: { params: { id: string
         <MetaCard label="Contract type" value={audit.contract_type || "—"} />
         <MetaCard label="Requester" value={audit.requester || "—"} />
       </div>
+
+      <ReviewDecisionBar auditId={audit.id} initialStatus={audit.review_status} />
 
       <ComplianceReportCard audit={audit} />
 

@@ -97,8 +97,19 @@ def _rule_based(input: ReasoningInput) -> ReasoningOutput:
     matched_src = top.get("source") if top else None
     matched_art = top.get("article") if top else None
 
+    text_lower = input.clause_text.lower()
+    has_notice_period = bool(
+        re.search(
+            r"\d+\s*days?['\u2019]?\s*(written\s+)?notice|notice\s+period|written\s+notice",
+            text_lower,
+            re.IGNORECASE,
+        )
+    )
+
     triggered: list[tuple[str, str, str]] = []
     for name, (pattern, reason, severity) in _RED_FLAGS.items():
+        if name == "no_notice_termination" and has_notice_period:
+            continue
         if pattern.search(input.clause_text):
             triggered.append((name, reason, severity))
 
@@ -189,49 +200,102 @@ Return ONLY valid JSON:
 """
 
 
-def _llm_reason(input: ReasoningInput) -> Optional[ReasoningOutput]:
-    if not (settings.enable_llm_reasoning and settings.openai_api_key):
+def _build_user_msg(input: ReasoningInput) -> str:
+    retrieval_block = "\n".join(
+        f"- id={m.get('id')} source={m.get('source')} article={m.get('article')} "
+        f"score={m.get('score', 0.0):.2f}\n  text: {m.get('text', '')[:600]}"
+        for m in input.matches
+    )
+    return (
+        f"Clause type: {input.clause_type}\n"
+        f"Clause text:\n{input.clause_text[:1500]}\n\n"
+        f"Retrieved regulatory clauses (top-{len(input.matches)}):\n{retrieval_block}\n"
+    )
+
+
+def _extract_json(raw: str) -> dict:
+    """Parse JSON from LLM output, tolerating markdown fences or extra text."""
+    raw = raw.strip()
+    raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.IGNORECASE)
+    raw = re.sub(r"\s*```$", "", raw)
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        m = re.search(r"\{[\s\S]*\}", raw)
+        if m:
+            return json.loads(m.group())
+        raise
+
+
+def _parse_llm_json(raw: str, matches: list[dict]) -> ReasoningOutput:
+    data = _extract_json(raw)
+    verdict = str(data.get("verdict", "ambiguous"))
+    risk = str(data.get("risk", "Low"))
+    top = matches[0] if matches else None
+    return ReasoningOutput(
+        verdict=verdict if verdict in {"compliant", "non_compliant", "ambiguous"} else "ambiguous",
+        risk=risk if risk in {"High", "Medium", "Low"} else "Low",
+        justification=str(data.get("justification", "")),
+        confidence=float(data.get("confidence", 0.5)),
+        matched_id=(top or {}).get("id"),
+        matched_source=(top or {}).get("source"),
+        matched_article=(top or {}).get("article"),
+    )
+
+
+def _gemini_reason(input: ReasoningInput) -> Optional[ReasoningOutput]:
+    if not settings.gemini_api_key:
+        return None
+    try:
+        from google import genai  # type: ignore
+        from google.genai import types as genai_types  # type: ignore
+
+        client = genai.Client(api_key=settings.gemini_api_key)
+        model_name = settings.gemini_model
+        if not model_name.startswith("models/"):
+            model_name = f"models/{model_name}"
+        resp = client.models.generate_content(
+            model=model_name,
+            contents=_build_user_msg(input),
+            config=genai_types.GenerateContentConfig(
+                system_instruction=REASONING_SYSTEM_PROMPT,
+                temperature=0.0,
+                max_output_tokens=2048,
+            ),
+        )
+        return _parse_llm_json(resp.text or "{}", input.matches)
+    except Exception as exc:
+        print(f"[agent] Gemini reasoning skipped: {exc!r}")
+        return None
+
+
+def _openai_reason(input: ReasoningInput) -> Optional[ReasoningOutput]:
+    if not settings.openai_api_key:
         return None
     try:
         from openai import OpenAI
 
         client = OpenAI(api_key=settings.openai_api_key)
-        retrieval_block = "\n".join(
-            f"- id={m.get('id')} source={m.get('source')} article={m.get('article')} "
-            f"score={m.get('score'):.2f}\n  text: {m.get('text')[:600]}"
-            for m in input.matches
-        )
-        user_msg = (
-            f"Clause type: {input.clause_type}\n"
-            f"Clause text:\n{input.clause_text[:1500]}\n\n"
-            f"Retrieved regulatory clauses (top-{len(input.matches)}):\n{retrieval_block}\n"
-        )
         completion = client.chat.completions.create(
             model=settings.openai_model,
             temperature=0,
             response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content": REASONING_SYSTEM_PROMPT},
-                {"role": "user", "content": user_msg},
+                {"role": "user", "content": _build_user_msg(input)},
             ],
         )
-        raw = completion.choices[0].message.content or "{}"
-        data = json.loads(raw)
-        verdict = str(data.get("verdict", "ambiguous"))
-        risk = str(data.get("risk", "Low"))
-        top = input.matches[0] if input.matches else None
-        return ReasoningOutput(
-            verdict=verdict if verdict in {"compliant", "non_compliant", "ambiguous"} else "ambiguous",
-            risk=risk if risk in {"High", "Medium", "Low"} else "Low",
-            justification=str(data.get("justification", "")),
-            confidence=float(data.get("confidence", 0.5)),
-            matched_id=(top or {}).get("id"),
-            matched_source=(top or {}).get("source"),
-            matched_article=(top or {}).get("article"),
-        )
+        return _parse_llm_json(completion.choices[0].message.content or "{}", input.matches)
     except Exception as exc:
-        print(f"[agent] LLM reasoning skipped: {exc!r}")
+        print(f"[agent] OpenAI reasoning skipped: {exc!r}")
         return None
+
+
+def _llm_reason(input: ReasoningInput) -> Optional[ReasoningOutput]:
+    if not (settings.enable_llm_reasoning and settings.has_llm):
+        return None
+    # Gemini preferred; OpenAI as fallback
+    return _gemini_reason(input) or _openai_reason(input)
 
 
 # ---------------------------------------------------------------------------

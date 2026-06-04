@@ -17,7 +17,7 @@ The workflow is a guarded contract-audit pipeline:
 2. Run input guardrails
 3. If rejected, return 422 immediately
 4. If accepted, extract metadata with LLM (Node 4 / 4b)
-5. **Node 5 — AI Agent** — calls tools `rag_query`, `langgraph_agent`, `doc_analyse` (reference architecture)
+5. **Node 5 — AI Agent** — calls tools `rag_query`, `langgraph_agent` (live path). **`doc_analyse` is not wired** in the graph; PDF segmentation runs in the **orchestrator** before the webhook (`n8n_pipeline._extract_clauses_and_description` → EC2/laptop `:8002/analyse`).
 6. Normalize agent JSON into dashboard report shape (Node 6 / 6c)
 7. Run output guardrails
 8. If output flagged, return `human_review_required`
@@ -58,16 +58,18 @@ http://host.docker.internal:8004/agent/run
 The repo export uses your EC2 public IP, e.g.:
 
 ```text
-http://44.223.109.220:8003/check/input
-http://44.223.109.220:8004/agent/run
+http://54.87.42.101:8003/check/input
+http://54.87.42.101:8004/agent/run
 ```
+
+The orchestrator webhook payload now includes **`clauses`** (from doc-analyzer segmentation) so LangGraph audits per PDF section instead of a single `clause_1` blob.
 
 After changing `n8n/compliance_audit.json`, **re-import** the workflow in n8n:
 
 1. n8n UI → **Workflows** → **Import from File** → select `n8n/compliance_audit.json` (overwrite or delete the old workflow first).
 2. Open the workflow → **Activate**.
 3. Re-attach **Google Gemini** credentials on Node 4 and Node 5.
-4. Confirm tool/HTTP nodes show `44.223.109.220` (or your Elastic IP), not `host.docker.internal`.
+4. Confirm tool/HTTP nodes show `54.87.42.101` (or your Elastic IP), not `host.docker.internal`.
 
 If n8n runs **natively on Windows** (not Docker), use `http://127.0.0.1:<port>` for local Layer 3 only.
 

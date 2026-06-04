@@ -43,6 +43,7 @@ class AuditRow(Base):
     input_guardrail_passed = Column(Boolean, nullable=False, default=True)
     output_guardrail_passed = Column(Boolean, nullable=False, default=True)
     rejection_reason = Column(Text, nullable=True)
+    review_status = Column(String(32), nullable=True, default="Pending")  # Approved | Pending | Rejected
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
 
@@ -68,8 +69,25 @@ def _init_engine() -> None:
     _SessionLocal = sessionmaker(bind=_engine, autoflush=False, autocommit=False, future=True)
 
 
+def _migrate_db() -> None:
+    """Apply lightweight schema migrations for columns added after initial creation."""
+    assert _engine is not None
+    import sqlalchemy as sa
+    with _engine.connect() as conn:
+        # Add review_status column if missing (SQLite ALTER TABLE ADD COLUMN)
+        try:
+            conn.execute(sa.text("ALTER TABLE audits ADD COLUMN review_status VARCHAR(32)"))
+            conn.commit()
+        except Exception:
+            pass  # Column already exists
+        # Backfill any NULL values to "Pending"
+        conn.execute(sa.text("UPDATE audits SET review_status = 'Pending' WHERE review_status IS NULL"))
+        conn.commit()
+
+
 def init_db() -> None:
     _init_engine()
+    _migrate_db()
 
 
 @contextmanager
@@ -92,6 +110,7 @@ def row_to_dict(row: AuditRow) -> dict:
         "id": row.id,
         "filename": row.filename,
         "status": row.status,
+        "review_status": row.review_status,
         "overall_risk": row.overall_risk,
         "parties": list(row.parties or []),
         "jurisdiction": row.jurisdiction,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -29,6 +30,14 @@ class OrchestratorSettings(BaseSettings):
     n8n_request_timeout_s: float = 180.0
     # When n8n returns HTTP 200 with an empty body, run the in-process Python pipeline.
     n8n_fallback_to_python: bool = True
+    openai_api_key: Optional[str] = None
+    openai_model: str = "gpt-4o-mini"
+    gemini_api_key: Optional[str] = None
+    gemini_model: str = "models/gemini-2.5-flash"
+
+    @property
+    def enable_llm_reasoning(self) -> bool:
+        return bool(self.openai_api_key or self.gemini_api_key)
 
     @property
     def sqlite_dir(self) -> Path:

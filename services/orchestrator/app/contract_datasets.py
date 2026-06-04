@@ -127,6 +127,81 @@ def _compliance_from_metadata(item: dict[str, Any]) -> Optional[str]:
     return _raw_field(item, "Compliance Standard", "compliance_standard") or None
 
 
+SUMMARY_PATH = DATASET_DIR / "portfolio_summaries.json"
+
+
+@lru_cache(maxsize=1)
+def _load_file_summaries() -> dict[str, dict[str, Any]]:
+    if not SUMMARY_PATH.exists():
+        return {}
+    try:
+        with SUMMARY_PATH.open("r", encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _status_key(item: dict[str, Any]) -> str:
+    raw = _raw_field(item, "Status", "status") or "Unknown"
+    return raw.strip() or "Unknown"
+
+
+def get_portfolio_stats(category: str) -> dict[str, Any]:
+    """Aggregate portfolio KPIs from normalized jsonl (+ optional Excel summary file)."""
+    cfg = load_category_config().get(category, {})
+    items = load_contracts(category)
+    by_status: dict[str, int] = {}
+    by_risk: dict[str, int] = {}
+    for it in items:
+        st = _status_key(it)
+        by_status[st] = by_status.get(st, 0) + 1
+        risk = _risk_from_metadata(it) or "Unknown"
+        by_risk[risk] = by_risk.get(risk, 0) + 1
+
+    active = sum(
+        c
+        for st, c in by_status.items()
+        if "active" in st.lower() and "inactive" not in st.lower()
+    )
+    file_summary = _load_file_summaries().get(category, {})
+    summary_kpis = dict(file_summary.get("kpis") or {})
+    if not summary_kpis and items:
+        summary_kpis["Total contracts in dataset"] = str(len(items))
+        if active:
+            summary_kpis["Active contracts (status field)"] = str(active)
+
+    return {
+        "category": category,
+        "label": cfg.get("label", category),
+        "total_contracts": len(items),
+        "active_contracts": active or file_summary.get("active_contracts"),
+        "by_status": by_status,
+        "by_risk": by_risk,
+        "summary_kpis": summary_kpis,
+    }
+
+
+def search_contracts(
+    category: Optional[str],
+    query: str,
+    *,
+    limit: int = 5,
+) -> list[dict[str, Any]]:
+    cats = [category] if category in ("bank", "cybersecurity", "ai") else (
+        ["bank", "cybersecurity", "ai"]
+    )
+    needle = query.lower()
+    hits: list[dict[str, Any]] = []
+    for cat in cats:
+        summaries, _ = list_contract_summaries(cat, limit=500, q=needle if len(needle) > 2 else None)
+        for s in summaries:
+            hits.append({**s, "category": cat})
+            if len(hits) >= limit:
+                return hits
+    return hits[:limit]
+
+
 def category_defaults(category: str) -> dict[str, Any]:
     cfg = load_category_config().get(category, {})
     return {

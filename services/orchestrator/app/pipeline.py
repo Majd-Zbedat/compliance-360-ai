@@ -27,6 +27,8 @@ import httpx
 
 from .config import settings
 from .db import AuditRow, session_scope
+from .audit_enrichment import apply_finding_clause_fields
+from .rag_contracts import sync_audit_to_rag
 from .recommendations import recommend
 from .schemas import AuditCreateRequest
 
@@ -147,13 +149,12 @@ async def run_pipeline(req: AuditCreateRequest) -> PipelineResult:
                     safe_justification = check["safe_text"]
             except Exception:
                 safe_justification = None
-            findings_out.append(
-                {
-                    **f,
-                    "safe_justification": safe_justification,
-                    "recommendation": f.get("recommendation") or recommend(f),
-                }
-            )
+            row = {
+                **f,
+                "safe_justification": safe_justification,
+                "recommendation": f.get("recommendation") or recommend(f),
+            }
+            findings_out.append(apply_finding_clause_fields(row, clauses))
 
     overall_risk = str(agent.get("overall_risk") or "Unknown")
 
@@ -178,6 +179,16 @@ async def run_pipeline(req: AuditCreateRequest) -> PipelineResult:
             updated_at=datetime.utcnow(),
         )
         s.add(row)
+
+    await sync_audit_to_rag(
+        audit_id,
+        req.filename,
+        clauses,
+        findings_out,
+        parties=req.parties,
+        jurisdiction=req.jurisdiction,
+        overall_risk=overall_risk,
+    )
 
     return PipelineResult(
         audit_id=audit_id,

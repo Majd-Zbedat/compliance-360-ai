@@ -150,6 +150,12 @@ export function SmartIngestion() {
       });
       const detail = await api.getAudit(res.audit_id);
       setResult(detail);
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("compliance360_last_audit_id", detail.id);
+        window.dispatchEvent(
+          new CustomEvent("compliance360-audit-complete", { detail: { auditId: detail.id } }),
+        );
+      }
       setPhase("idle");
     } catch (err: any) {
       setError(err?.message || "Failed to start audit");

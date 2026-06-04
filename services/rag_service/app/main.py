@@ -16,6 +16,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
 from .schemas import (
+    ContractQueryRequest,
+    ContractQueryResponse,
+    ContractRetrieved,
+    ContractUpsertRequest,
     HealthResponse,
     QueryRequest,
     QueryResponse,
@@ -44,6 +48,7 @@ def healthz() -> HealthResponse:
     return HealthResponse(
         status="ok",
         regulations_indexed=store.regulations_count(),
+        contracts_indexed=store.contracts_count(),
         embedding_backend=store.embedder_name,
     )
 
@@ -60,6 +65,50 @@ def query(req: QueryRequest) -> QueryResponse:
     )
     matches = [_to_retrieved(m) for m in raw_matches]
     return QueryResponse(query=req.text, matches=matches, insight=_build_insight(matches))
+
+
+@app.post("/query/contracts", response_model=ContractQueryResponse)
+def query_contracts(req: ContractQueryRequest) -> ContractQueryResponse:
+    if not req.text.strip():
+        raise HTTPException(status_code=400, detail="text must be non-empty")
+    store = get_store()
+    raw = store.query_contracts(
+        text=req.text,
+        top_k=req.top_k,
+        category=req.category,
+        audit_id=req.audit_id,
+        include_portfolio=req.include_portfolio,
+    )
+    matches = [_to_contract_retrieved(m) for m in raw]
+    return ContractQueryResponse(query=req.text, matches=matches)
+
+
+@app.post("/upsert/contracts")
+def upsert_contracts(req: ContractUpsertRequest) -> dict:
+    store = get_store()
+    if req.reset_portfolio:
+        try:
+            store.contracts.delete(where={"doc_type": "portfolio"})
+        except Exception:
+            pass
+    if not req.items:
+        return {"upserted": 0, "total": store.contracts_count()}
+    ids = [it.id for it in req.items]
+    docs = [it.text for it in req.items]
+    metas = [
+        {
+            "doc_type": it.doc_type,
+            "category": it.category or "",
+            "audit_id": it.audit_id or "",
+            "contract_id": it.contract_id or "",
+            "title": it.title or "",
+            "section": it.section or "",
+            "filename": it.filename or "",
+        }
+        for it in req.items
+    ]
+    store.upsert_contract_chunks(ids=ids, documents=docs, metadatas=metas)
+    return {"upserted": len(ids), "total": store.contracts_count()}
 
 
 @app.post("/upsert")
@@ -91,6 +140,22 @@ def _to_retrieved(row: dict) -> RetrievedClause:
         title=meta.get("title") or None,
         text=row.get("text", ""),
         score=float(row.get("score") or 0.0),
+    )
+
+
+def _to_contract_retrieved(row: dict) -> ContractRetrieved:
+    meta = row.get("metadata") or {}
+    return ContractRetrieved(
+        id=row["id"],
+        text=row.get("text", ""),
+        score=float(row.get("score") or 0.0),
+        doc_type=str(meta.get("doc_type") or "portfolio"),
+        category=meta.get("category") or None,
+        audit_id=meta.get("audit_id") or None,
+        contract_id=meta.get("contract_id") or None,
+        title=meta.get("title") or None,
+        section=meta.get("section") or None,
+        filename=meta.get("filename") or None,
     )
 
 

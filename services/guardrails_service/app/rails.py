@@ -206,12 +206,65 @@ _LLM_CRITIC_PROMPT = (
 )
 
 
-def llm_critic(text: str) -> Optional[dict]:
-    """Run the optional second-pass LLM critic. Returns None if unavailable."""
-    if not (settings.enable_llm_critic and settings.openai_api_key):
+def _extract_json(raw: str) -> dict:
+    """Parse JSON from LLM output, tolerating markdown fences or extra text."""
+    import json, re
+    raw = raw.strip()
+    # Strip markdown code fences
+    raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.IGNORECASE)
+    raw = re.sub(r"\s*```$", "", raw)
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        # Find the first {...} block in the text
+        m = re.search(r"\{[\s\S]*\}", raw)
+        if m:
+            return json.loads(m.group())
+        raise
+
+
+def _parse_critic_json(raw: str, original_text: str) -> dict:
+    data = _extract_json(raw)
+    return {
+        "passed": bool(data.get("passed", True)),
+        "reason": data.get("reason"),
+        "safe_text": data.get("safe_text") or original_text,
+        "matched_rules": ["llm_critic"] if not data.get("passed", True) else [],
+    }
+
+
+def _gemini_critic(text: str) -> Optional[dict]:
+    if not settings.gemini_api_key:
+        return None
+    try:
+        from google import genai  # type: ignore
+        from google.genai import types as genai_types  # type: ignore
+
+        client = genai.Client(api_key=settings.gemini_api_key)
+        model_name = settings.gemini_model
+        if not model_name.startswith("models/"):
+            model_name = f"models/{model_name}"
+        resp = client.models.generate_content(
+            model=model_name,
+            contents=_LLM_CRITIC_PROMPT.replace("{text}", text),
+            config=genai_types.GenerateContentConfig(
+                system_instruction="You are a careful compliance guardrail.",
+                temperature=0.0,
+                max_output_tokens=2048,
+            ),
+        )
+        return _parse_critic_json(resp.text or "{}", text)
+    except Exception as exc:
+        print(f"[guardrails] Gemini critic skipped: {exc!r}")
+        return None
+
+
+def _openai_critic(text: str) -> Optional[dict]:
+    if not settings.openai_api_key:
         return None
     try:
         from openai import OpenAI
+        import json
 
         client = OpenAI(api_key=settings.openai_api_key)
         completion = client.chat.completions.create(
@@ -219,20 +272,19 @@ def llm_critic(text: str) -> Optional[dict]:
             response_format={"type": "json_object"},
             messages=[
                 {"role": "system", "content": "You are a careful compliance guardrail."},
-                {"role": "user", "content": _LLM_CRITIC_PROMPT.format(text=text)},
+                {"role": "user", "content": _LLM_CRITIC_PROMPT.replace("{text}", text)},
             ],
             temperature=0,
         )
-        raw = completion.choices[0].message.content or "{}"
-        import json
-
-        data = json.loads(raw)
-        return {
-            "passed": bool(data.get("passed", True)),
-            "reason": data.get("reason"),
-            "safe_text": data.get("safe_text") or text,
-            "matched_rules": ["llm_critic"] if not data.get("passed", True) else [],
-        }
+        return _parse_critic_json(completion.choices[0].message.content or "{}", text)
     except Exception as exc:
-        print(f"[guardrails] LLM critic skipped: {exc!r}")
+        print(f"[guardrails] OpenAI critic skipped: {exc!r}")
         return None
+
+
+def llm_critic(text: str) -> Optional[dict]:
+    """Run the optional second-pass LLM critic. Returns None if unavailable."""
+    if not (settings.enable_llm_critic and settings.has_llm):
+        return None
+    # Gemini preferred; OpenAI as fallback
+    return _gemini_critic(text) or _openai_critic(text)
