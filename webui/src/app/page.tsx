@@ -4,11 +4,6 @@ import { DashboardKpis } from "@/components/dashboard/DashboardKpis";
 import { RecentAlerts } from "@/components/dashboard/RecentAlerts";
 import { api, type AuditSummary, type Stats } from "@/lib/api";
 
-const ComplianceChat = nextDynamic(
-  () => import("@/components/ComplianceChat").then((m) => m.ComplianceChat),
-  { ssr: false, loading: () => <ChatPlaceholder /> },
-);
-
 const SmartIngestion = nextDynamic(
   () => import("@/components/SmartIngestion").then((m) => m.SmartIngestion),
   { ssr: false, loading: () => <IngestionPlaceholder /> },
@@ -82,22 +77,7 @@ export default async function DashboardPage() {
         <RecentAlerts audits={audits} />
       </div>
 
-      <div>
-        <div className="mb-4 flex items-center gap-2.5">
-          <div className="h-5 w-0.5 rounded-full bg-accent" />
-          <p className="text-xs font-semibold uppercase tracking-widest text-primary">
-            Compliance AI Assistant
-          </p>
-        </div>
-        <ComplianceChat />
-      </div>
     </div>
-  );
-}
-
-function ChatPlaceholder() {
-  return (
-    <div className="h-[640px] animate-pulse rounded-lg border border-border bg-card" />
   );
 }
 

@@ -52,10 +52,12 @@ export interface ContractMetadata {
   party_a?: string | null;
   party_a_address?: string | null;
   party_a_regulated_by?: string | null;
+  party_a_registration?: string | null;
   party_a_lei?: string | null;
   party_b?: string | null;
   party_b_address?: string | null;
   party_b_regulated_by?: string | null;
+  party_b_registration?: string | null;
   party_b_lei?: string | null;
   party_b_abn?: string | null;
   term?: string | null;
@@ -279,6 +281,10 @@ export const api = {
     request<{ id: string; review_status: string }>(`/audits/${auditId}/status`, {
       method: "PATCH",
       body: JSON.stringify({ review_status: reviewStatus }),
+    }),
+  deleteAudit: (auditId: string) =>
+    request<{ id: string; deleted: boolean }>(`/audits/${auditId}`, {
+      method: "DELETE",
     }),
   addRegulation: (payload: {
     source: string;

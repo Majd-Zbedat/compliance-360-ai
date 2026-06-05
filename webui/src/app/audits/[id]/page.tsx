@@ -64,7 +64,9 @@ export default async function AuditDetailPage({ params }: { params: { id: string
         <>
           <Card>
             <CardHeader>
-              <CardTitle>Findings ({audit.findings.length})</CardTitle>
+              <CardTitle>
+                Findings ({audit.findings.filter((f) => f.risk === "High" || f.risk === "Medium").length})
+              </CardTitle>
             </CardHeader>
             <CardContent>
               <FindingsTable findings={audit.findings} clauses={audit.clauses} />

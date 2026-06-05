@@ -66,10 +66,12 @@ class ContractMetadataOut(BaseModel):
     party_a: Optional[str] = None
     party_a_address: Optional[str] = None
     party_a_regulated_by: Optional[str] = None
+    party_a_registration: Optional[str] = None
     party_a_lei: Optional[str] = None
     party_b: Optional[str] = None
     party_b_address: Optional[str] = None
     party_b_regulated_by: Optional[str] = None
+    party_b_registration: Optional[str] = None
     party_b_lei: Optional[str] = None
     party_b_abn: Optional[str] = None
     term: Optional[str] = None

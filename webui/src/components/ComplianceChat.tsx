@@ -137,7 +137,7 @@ function nextId() {
   return `msg-${++msgCounter}`;
 }
 
-export function ComplianceChat() {
+export function ComplianceChat({ compact = false }: { compact?: boolean }) {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: nextId(),
@@ -241,8 +241,8 @@ export function ComplianceChat() {
   };
 
   return (
-    <div className="flex h-[640px] flex-col overflow-hidden rounded-lg border border-border bg-background shadow-card">
-      <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-primary px-5 py-3.5">
+    <div className={compact ? "flex h-full flex-col overflow-hidden bg-background" : "flex h-[640px] flex-col overflow-hidden rounded-lg border border-border bg-background shadow-card"}>
+      {!compact && <div className="flex shrink-0 items-center justify-between gap-3 border-b border-border bg-primary px-5 py-3.5">
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/10">
             <ShieldCheck size={16} className="text-white" />
@@ -299,7 +299,52 @@ export function ComplianceChat() {
             <X size={14} />
           </button>
         </div>
-      </div>
+      </div>}
+
+      {compact && (
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-border px-3 py-2 bg-muted/30">
+          <select
+            className="h-7 flex-1 min-w-0 rounded border border-border bg-card px-2 text-[11px] text-brand-ink [&>option]:bg-white [&>option]:text-gray-900"
+            value={auditId}
+            onChange={(e) => setAuditId(e.target.value)}
+          >
+            <option value="">No audit context</option>
+            {recentAudits.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.filename.length > 24 ? `${a.filename.slice(0, 21)}…` : a.filename}
+              </option>
+            ))}
+          </select>
+          <select
+            className="h-7 rounded border border-border bg-card px-2 text-[11px] text-brand-ink [&>option]:bg-white [&>option]:text-gray-900"
+            value={portfolioFilter}
+            onChange={(e) => setPortfolioFilter(e.target.value)}
+          >
+            <option value="">All portfolios</option>
+            <option value="bank">Bank</option>
+            <option value="cybersecurity">Cybersecurity</option>
+            <option value="ai">AI</option>
+          </select>
+          <select
+            className="h-7 rounded border border-border bg-card px-2 text-[11px] text-brand-ink [&>option]:bg-white [&>option]:text-gray-900"
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value)}
+          >
+            <option value="">All regulations</option>
+            <option value="GDPR">GDPR</option>
+            <option value="ISO27001">ISO 27001</option>
+            <option value="LocalLaw">Local Law</option>
+          </select>
+          <button
+            type="button"
+            onClick={clearChat}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-muted"
+            title="Clear chat"
+          >
+            <X size={13} />
+          </button>
+        </div>
+      )}
 
       <div className="flex-1 space-y-4 overflow-y-auto px-5 py-4">
         {messages.map((msg) =>

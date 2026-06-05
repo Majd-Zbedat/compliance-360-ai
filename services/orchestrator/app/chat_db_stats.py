@@ -47,6 +47,16 @@ _META_QUERY_PATTERNS = [
     r"\bcontract.{0,30}\bdetails?\b",
     r"\b(list|show|what are).{0,30}\b(all\s+)?contracts?\b",
     r"\bcontracts?.{0,30}(expir|active|approved|rejected|pending).{0,30}(in|on|by|at)\b",
+    # Contract ID lookup patterns
+    r"\bcontract\s+(id|number|no\.?|#)\s*[=:—\-]?\s*[A-Z0-9]",
+    r"\bid\s*[=:—]\s*[A-Z0-9\-]{3,}",
+    r"\b[A-Z]{2,8}-\d{4}-[A-Z0-9]{2,12}\b",  # matches IDs like BNK-2026-026, DEMO-2026-001
+    r"\b(find|lookup|look up|get|show|tell me about|details (for|of|about))\b.{0,40}\b[A-Z]{2,8}-\d{4}",
+    r"\bwhat.{0,40}\bcontract\b.{0,40}\b[A-Z]{2,8}-\d{4}",
+    # Contract term / duration comparisons
+    r"\b(longest|shortest)\b.{0,40}\b(term|duration|contract|period|tenure)\b",
+    r"\bcontract.{0,40}\b(longest|shortest|duration|term length|tenure)\b",
+    r"\b(how long|duration|term length)\b.{0,30}\bcontract\b",
 ]
 
 _META_COMPILED = [re.compile(p, re.IGNORECASE) for p in _META_QUERY_PATTERNS]
@@ -208,13 +218,73 @@ def _parse_numeric_value(val_str: str) -> Optional[float]:
         return None
 
 
-def _load_all_metadata() -> list[dict]:
-    """Load all audits with their parsed contract metadata — cached per-call."""
+def _infer_category(c: dict) -> Optional[str]:
+    """Infer a portfolio category (cybersecurity / bank / ai) for an uploaded contract."""
+    blob = " ".join(
+        str(c.get(k) or "")
+        for k in ("contract_type", "filename", "party_b", "party_b_regulated_by", "party_a")
+    ).lower()
+    if any(w in blob for w in ("cyber", "security", "soc 2", "soc2", "iso 27001", "iso27001", "infosec", "threat", "nist")):
+        return "cybersecurity"
+    if any(w in blob for w in ("bank", "financial", "finance", "basel", "apra", "occ", "fdic", "lei")):
+        return "bank"
+    if re.search(r"\bai\b|artificial intelligence|machine learning|\bmodel\b|\bllm\b", blob):
+        return "ai"
+    return None
+
+
+def _detect_question_category(q: str) -> Optional[str]:
+    """Detect which contract category the user is asking about, if any."""
+    if re.search(r"\b(cyber|cybersecurity|security|infosec)\b", q):
+        return "cybersecurity"
+    if re.search(r"\b(banking|bank|financial|finance)\b", q):
+        return "bank"
+    if re.search(r"\b(ai|a\.i\.|artificial intelligence|machine learning)\b", q):
+        return "ai"
+    return None
+
+
+def _parse_flexible_date(s: str) -> Optional[datetime]:
+    """Parse contract date strings like 'June 1, 2026', '2026-06-01', 'Jun 1 2026'."""
+    if not s:
+        return None
+    return _parse_date_token(s.strip().lower())
+
+
+def _contract_duration_days(c: dict) -> Optional[int]:
+    """Compute contract term length in days from effective → expiry dates."""
+    eff = _parse_flexible_date(c.get("effective_date") or "")
+    exp = _parse_flexible_date(c.get("expiry_date") or "")
+    if eff and exp and exp > eff:
+        return (exp - eff).days
+    return None
+
+
+def _fmt_duration(days: int) -> str:
+    """Human-readable duration, e.g. 730 → '24 months (~2.0 years)'."""
+    months = round(days / 30.44)
+    years = days / 365.25
+    return f"{months} months (~{years:.1f} years)"
+
+
+def _load_all_metadata(*, dedupe: bool = True) -> list[dict]:
+    """Load all audits with their parsed contract metadata — cached per-call.
+
+    When ``dedupe`` is True, only the most recent audit per contract
+    (keyed by contract number or filename) is returned so aggregate answers
+    don't repeat the same contract when a file was re-uploaded several times.
+    """
     with session_scope() as s:
         rows = s.query(AuditRow).order_by(AuditRow.created_at.desc()).all()
         result = []
+        seen_keys: set[str] = set()
         for r in rows:
             meta = parse_contract_metadata(list(r.clauses or []))
+            if dedupe:
+                key = (r.filename or meta.get("contract_number") or r.id).strip().lower()
+                if key in seen_keys:
+                    continue
+                seen_keys.add(key)
             result.append({
                 "id": r.id,
                 "filename": r.filename,
@@ -258,12 +328,188 @@ def _fmt_contract_line(c: dict, *, show_value: bool = True) -> str:
 # Metadata query answerer
 # ---------------------------------------------------------------------------
 
+def _extract_contract_id(question: str) -> Optional[str]:
+    """Extract a contract ID like BNK-2026-026 or DEMO-2026-001 from a question."""
+    # Match standard contract ID format: 2-8 uppercase letters + year + alphanumeric suffix
+    m = re.search(r"\b([A-Z]{2,8}-\d{4}-[A-Z0-9]{2,12})\b", question, re.IGNORECASE)
+    if m:
+        return m.group(1).upper()
+    # Also match "id = XYZ" or "id: XYZ" patterns where XYZ may be non-standard
+    m = re.search(r"\b(?:contract\s+)?(?:id|number|no\.?|#)\s*[=:\-–—]\s*([A-Z0-9][A-Z0-9\-/]{2,30})", question, re.IGNORECASE)
+    if m:
+        return m.group(1).upper().strip("-")
+    return None
+
+
+def _fmt_full_contract(c: dict) -> str:
+    """Format a full contract detail block."""
+    lines: list[str] = []
+    lines.append(f"### Contract: `{c['filename']}`")
+    lines.append("")
+    if c.get("contract_number"):
+        lines.append(f"**Contract ID:** {c['contract_number']}")
+    if c.get("contract_value"):
+        lines.append(f"**Contract Value:** {c['contract_value']}")
+    if c.get("effective_date"):
+        lines.append(f"**Effective Date:** {c['effective_date']}")
+    if c.get("expiry_date"):
+        lines.append(f"**Expiry Date:** {c['expiry_date']}")
+    if c.get("contract_manager"):
+        lines.append(f"**Contract Manager:** {c['contract_manager']}")
+    if c.get("payment_terms"):
+        lines.append(f"**Payment Terms:** {c['payment_terms']}")
+    if c.get("jurisdiction") or c.get("governing_law"):
+        lines.append(f"**Jurisdiction:** {c.get('jurisdiction') or c.get('governing_law')}")
+    if c.get("contract_type"):
+        lines.append(f"**Contract Type:** {c['contract_type']}")
+    lines.append(f"**Overall Risk:** {c['overall_risk']}")
+    lines.append(f"**Review Status:** {c.get('review_status') or 'Pending'}")
+    if c.get("status"):
+        lines.append(f"**Status:** {c['status']}")
+    if c.get("party_a"):
+        pa_line = f"**Party A:** {c['party_a']}"
+        if c.get("party_a_regulated_by"):
+            pa_line += f" (Regulated by: {c['party_a_regulated_by']})"
+        lines.append(pa_line)
+    if c.get("party_b"):
+        pb_line = f"**Party B:** {c['party_b']}"
+        if c.get("party_b_regulated_by"):
+            pb_line += f" (Regulated by: {c['party_b_regulated_by']})"
+        lines.append(pb_line)
+    elif c.get("parties"):
+        lines.append(f"**Parties:** {', '.join(c['parties'])}")
+    lines.append(f"\n_Uploaded: {c['created_at'].strftime('%b %d, %Y') if c.get('created_at') else '—'}_")
+    return "\n".join(lines)
+
+
+def _extract_specific_field(q: str, c: dict) -> Optional[str]:
+    """If the question targets a single field of a contract, return just that value."""
+    name = f"`{c['filename']}`"
+
+    if re.search(r"\b(contract manager|who manages|who is the manager|managed by)\b", q):
+        v = c.get("contract_manager")
+        return f"The contract manager for {name} is **{v}**." if v else f"No contract manager found for {name}."
+
+    if re.search(r"\b(contract value|how much|worth|price|amount|value)\b", q):
+        v = c.get("contract_value")
+        return f"The contract value of {name} is **{v}**." if v else f"No contract value found for {name}."
+
+    if re.search(r"\b(expir|expire|expiry|end date|ends)\b", q):
+        v = c.get("expiry_date")
+        return f"The expiry date of {name} is **{v}**." if v else f"No expiry date found for {name}."
+
+    if re.search(r"\b(effective date|start date|commence|begins|started)\b", q):
+        v = c.get("effective_date")
+        return f"The effective date of {name} is **{v}**." if v else f"No effective date found for {name}."
+
+    if re.search(r"\b(payment terms?|net \d+|how.*paid|invoice)\b", q):
+        v = c.get("payment_terms")
+        return f"The payment terms for {name} are **{v}**." if v else f"No payment terms found for {name}."
+
+    if re.search(r"\b(jurisdiction|governing law|governed by)\b", q):
+        v = c.get("jurisdiction") or c.get("governing_law")
+        return f"The jurisdiction of {name} is **{v}**." if v else f"No jurisdiction found for {name}."
+
+    if re.search(r"\b(party a|engaging institution|client side)\b", q):
+        v = c.get("party_a")
+        return f"Party A of {name} is **{v}**." if v else f"No Party A found for {name}."
+
+    if re.search(r"\b(party b|service provider|vendor side)\b", q):
+        v = c.get("party_b")
+        return f"Party B of {name} is **{v}**." if v else f"No Party B found for {name}."
+
+    if re.search(r"\b(parties|who are the parties|contracting parties)\b", q):
+        pa = c.get("party_a") or "—"
+        pb = c.get("party_b") or (", ".join(c.get("parties") or [])) or "—"
+        return f"Parties in {name}:\n  • Party A: **{pa}**\n  • Party B: **{pb}**"
+
+    if re.search(r"\b(risk|risk level|overall risk)\b", q):
+        return f"The overall risk of {name} is **{c['overall_risk']}**."
+
+    if re.search(r"\b(status|review status|review decision)\b", q):
+        return f"Review status of {name}: **{c.get('review_status') or 'Pending'}** (pipeline status: {c['status']})."
+
+    return None  # No specific field matched → caller shows full details
+
+
 def answer_meta_query(question: str) -> Optional[str]:
     """Answer a structured metadata question about contracts. Returns None if not handled."""
     q = question.strip().lower()
     contracts = _load_all_metadata()
     if not contracts:
         return "No contract audits found. Upload a contract to get started."
+
+    # ── Contract ID lookup (highest priority) ─────────────────────────────
+    cid = _extract_contract_id(question)
+    if cid:
+        # Search by contract_number field first, then filename
+        matched = [
+            c for c in contracts
+            if (c.get("contract_number") or "").upper() == cid
+            or cid in (c.get("contract_number") or "").upper()
+            or cid.lower() in c["filename"].lower()
+        ]
+        if matched:
+            hit = matched[0]
+            # If asking for a specific field, return just that field value
+            specific = _extract_specific_field(q, hit)
+            if specific:
+                return specific
+            # Generic / "details" question → full card
+            if len(matched) == 1:
+                return _fmt_full_contract(hit)
+            lines = [f"**{len(matched)}** contract(s) matching ID **{cid}**:"]
+            for c in matched[:3]:
+                lines.append(f"\n{_fmt_full_contract(c)}")
+            return "\n".join(lines)
+        # No match — try partial filename
+        partial = [c for c in contracts if any(part in c["filename"].upper() for part in cid.split("-")[:2])]
+        if partial:
+            lines = [f"No exact match for **{cid}**. Closest contracts found:"]
+            for c in partial[:3]:
+                lines.append(f"  • `{c['filename']}` (ID: {c.get('contract_number') or '—'})")
+            return "\n".join(lines)
+        known = ", ".join(f"`{c['contract_number']}`" for c in contracts if c.get("contract_number"))
+        return (
+            f"No contract found with ID **{cid}**. "
+            + (f"Available IDs: {known[:300]}" if known else "No contract IDs extracted yet.")
+        )
+
+    # ── Category scoping ───────────────────────────────────────────────────
+    # If the user names a category (e.g. "security contracts"), restrict all
+    # aggregate answers below to that category only.
+    cat = _detect_question_category(q)
+    cat_label = ""
+    if cat:
+        scoped = [c for c in contracts if _infer_category(c) == cat]
+        if scoped:
+            contracts = scoped
+            cat_label = f" (in the **{cat}** portfolio)"
+        # If nothing matches the category, fall back to all contracts silently.
+
+    # ── Longest / shortest contract term ───────────────────────────────────
+    if re.search(r"\b(longest|shortest|duration|term length|how long)\b", q) and re.search(
+        r"\b(term|duration|contract|period|tenure|long)\b", q
+    ):
+        is_longest = not bool(re.search(r"\b(shortest|smallest|least)\b", q))
+        dated = [(d, c) for c in contracts if (d := _contract_duration_days(c))]
+        if not dated:
+            return (
+                "No contract has both an effective date and expiry date parsed, "
+                "so I can't compare term lengths yet."
+            )
+        ranked = sorted(dated, key=lambda t: t[0], reverse=is_longest)
+        dur, top = ranked[0]
+        label = "longest" if is_longest else "shortest"
+        lines = [
+            f"The **{label}-term contract**{cat_label} is **`{top['filename']}`** — "
+            f"**{_fmt_duration(dur)}** ({top.get('effective_date')} → {top.get('expiry_date')})."
+        ]
+        if len(ranked) > 1:
+            lines.append("\nBy term length:")
+            for d, c in ranked[:6]:
+                lines.append(f"  • `{c['filename']}` — {_fmt_duration(d)}")
+        return "\n".join(lines)
 
     # ── Most / least expensive ─────────────────────────────────────────────
     is_most = bool(re.search(r"\b(most expensive|highest.?value|largest|biggest|most valuable)\b", q))
@@ -275,7 +521,7 @@ def answer_meta_query(question: str) -> Optional[str]:
         ranked = sorted(valued, key=lambda c: c["contract_value_num"], reverse=is_most)
         top = ranked[0]
         label = "most expensive" if is_most else "cheapest"
-        lines = [f"The **{label} contract** is {_fmt_contract_line(top)}."]
+        lines = [f"The **{label} contract**{cat_label} is {_fmt_contract_line(top)}."]
         if len(ranked) > 1:
             lines.append("\nAll contracts by value:")
             for i, c in enumerate(ranked[:8], 1):
@@ -365,7 +611,7 @@ def answer_meta_query(question: str) -> Optional[str]:
 
     # ── General "list all / show all contracts" ───────────────────────────
     if re.search(r"\b(list|show|what are).{0,20}(all\s+)?contracts?\b", q):
-        lines = [f"**{len(contracts)}** analyzed contracts:\n"]
+        lines = [f"**{len(contracts)}** analyzed contracts{cat_label}:\n"]
         for c in contracts[:15]:
             risk_label = f"[{c['overall_risk']}]"
             value = f" | {c['contract_value']}" if c.get("contract_value") else ""
@@ -391,6 +637,7 @@ def _rows_to_snapshots(session) -> list[dict]:
             "status": r.status,
             "overall_risk": r.overall_risk or "Unknown",
             "created_at": r.created_at,
+            "contract_type": r.contract_type,
             "findings_count": len(r.findings or []),
             "high_findings": sum(1 for f in (r.findings or []) if f.get("risk") == "High"),
         }
@@ -423,6 +670,16 @@ def answer_db_stats(question: str) -> str:
         return "No contract audits have been run yet. Upload a PDF to get started."
 
     total_all = len(rows)
+
+    # ── Category scoping (e.g. "how many security contracts") ──────────────
+    cat = _detect_question_category(q)
+    cat_label = ""
+    if cat:
+        scoped = [r for r in rows if _infer_category(r) == cat]
+        if scoped:
+            rows = scoped
+            total_all = len(rows)
+            cat_label = f" in the **{cat}** portfolio"
 
     # ── Date range filter ──────────────────────────────────────────────────
     date_start, date_end = _extract_date_range(question)
@@ -508,7 +765,7 @@ def answer_db_stats(question: str) -> str:
         by_risk[r["overall_risk"]] = by_risk.get(r["overall_risk"], 0) + 1
 
     _risk_order = ["High", "Medium", "Low", "Unknown"]
-    lines = [f"**{count}** contract audit(s) uploaded and analyzed{date_label}."]
+    lines = [f"**{count}** contract audit(s) uploaded and analyzed{cat_label}{date_label}."]
     for risk in _risk_order:
         n = by_risk.get(risk, 0)
         if n:

@@ -10,6 +10,7 @@ import {
   FileText,
   MoreVertical,
   Search,
+  Trash2,
   Upload,
   X,
 } from "lucide-react";
@@ -53,9 +54,10 @@ interface ActionMenuProps {
   auditId: string;
   current: ReviewStatus | null;
   onStatusChange: (id: string, status: ReviewStatus) => void;
+  onDelete: (id: string) => void;
 }
 
-function ActionMenu({ auditId, current, onStatusChange }: ActionMenuProps) {
+function ActionMenu({ auditId, current, onStatusChange, onDelete }: ActionMenuProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -83,6 +85,22 @@ function ActionMenu({ auditId, current, onStatusChange }: ActionMenuProps) {
       onStatusChange(auditId, value);
     } catch (err) {
       console.error("Status update failed", err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDelete() {
+    setOpen(false);
+    if (!window.confirm("Delete this document permanently? This cannot be undone.")) {
+      return;
+    }
+    setLoading(true);
+    try {
+      await api.deleteAudit(auditId);
+      onDelete(auditId);
+    } catch (err) {
+      console.error("Delete failed", err);
     } finally {
       setLoading(false);
     }
@@ -126,6 +144,15 @@ function ActionMenu({ auditId, current, onStatusChange }: ActionMenuProps) {
               )}
             </button>
           ))}
+          <div className="my-1 border-t border-border" />
+          <button
+            type="button"
+            onClick={handleDelete}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-700 hover:bg-red-50"
+          >
+            <Trash2 size={13} />
+            Delete document
+          </button>
         </div>
       )}
     </div>
@@ -146,6 +173,11 @@ export function DocumentsTable({ audits: initial }: { audits: AuditSummary[] }) 
     setAudits((prev) =>
       prev.map((a) => (a.id === id ? { ...a, review_status: status } : a))
     );
+  }
+
+  // Remove a deleted document from the list
+  function handleDelete(id: string) {
+    setAudits((prev) => prev.filter((a) => a.id !== id));
   }
 
   const filtered = useMemo(() => {
@@ -271,7 +303,7 @@ export function DocumentsTable({ audits: initial }: { audits: AuditSummary[] }) 
 
                   {/* Analyst */}
                   <AuditTableCell>
-                    <AnalystAvatar name={a.requester || "Sarah Chen"} />
+                    <AnalystAvatar name={a.requester || "Majd Zubeidat"} />
                   </AuditTableCell>
 
                   {/* Date */}
@@ -285,6 +317,7 @@ export function DocumentsTable({ audits: initial }: { audits: AuditSummary[] }) 
                       auditId={a.id}
                       current={(a.review_status as ReviewStatus) ?? null}
                       onStatusChange={handleStatusChange}
+                      onDelete={handleDelete}
                     />
                   </AuditTableCell>
                 </AuditTableRow>

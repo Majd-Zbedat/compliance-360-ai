@@ -20,7 +20,7 @@ import base64
 from datetime import datetime, timedelta
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Body, FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import desc
 
@@ -281,7 +281,7 @@ _VALID_REVIEW_STATUSES = {"Approved", "Pending", "Rejected"}
 
 
 @app.patch("/audits/{audit_id}/status")
-def update_audit_review_status(audit_id: str, body: dict) -> dict:
+def update_audit_review_status(audit_id: str, body: dict = Body(...)) -> dict:
     """Set the human reviewer decision for an audit: Approved | Pending | Rejected."""
     new_status = (body.get("review_status") or "").strip()
     if new_status not in _VALID_REVIEW_STATUSES:
@@ -296,6 +296,17 @@ def update_audit_review_status(audit_id: str, body: dict) -> dict:
         row.review_status = new_status
         row.updated_at = datetime.utcnow()
     return {"id": audit_id, "review_status": new_status}
+
+
+@app.delete("/audits/{audit_id}")
+def delete_audit(audit_id: str) -> dict:
+    """Permanently delete an audit/document from the database."""
+    with session_scope() as s:
+        row = s.query(AuditRow).filter(AuditRow.id == audit_id).first()
+        if row is None:
+            raise HTTPException(status_code=404, detail="audit not found")
+        s.delete(row)
+    return {"id": audit_id, "deleted": True}
 
 
 @app.get("/audits/stats", response_model=StatsResponse)

@@ -31,6 +31,7 @@ export function FindingsTable({
   clauses: Clause[];
 }) {
   const [riskFilter, setRiskFilter] = useState<string | null>(null);
+  const [showCompliant, setShowCompliant] = useState(false);
   const [selected, setSelected] = useState<{
     finding: Finding;
     clause?: Clause;
@@ -42,19 +43,29 @@ export function FindingsTable({
     return map;
   }, [clauses]);
 
+  const compliantCount = useMemo(
+    () => findings.filter((f) => f.risk === "Low").length,
+    [findings],
+  );
+
   const filtered = useMemo(() => {
-    const items = riskFilter ? findings.filter((f) => f.risk === riskFilter) : findings;
+    // By default only show actual gaps (High / Medium). Compliant (Low) clauses
+    // are hidden unless the user opts to reveal them.
+    let items = showCompliant
+      ? findings
+      : findings.filter((f) => f.risk === "High" || f.risk === "Medium");
+    if (riskFilter) items = items.filter((f) => f.risk === riskFilter);
     return [...items].sort(
       (a, b) => (RISK_ORDER[a.risk] ?? 9) - (RISK_ORDER[b.risk] ?? 9),
     );
-  }, [findings, riskFilter]);
+  }, [findings, riskFilter, showCompliant]);
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 text-xs">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
         <Filter className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="text-muted-foreground">Filter:</span>
-        {(["High", "Medium", "Low"] as const).map((r) => (
+        {(["High", "Medium"] as const).map((r) => (
           <button
             key={r}
             onClick={() => setRiskFilter(riskFilter === r ? null : r)}
@@ -74,6 +85,20 @@ export function FindingsTable({
             className="text-muted-foreground underline"
           >
             clear
+          </button>
+        )}
+        {compliantCount > 0 && (
+          <button
+            onClick={() => setShowCompliant((v) => !v)}
+            className={
+              "ml-auto rounded-full border px-2 py-0.5 transition-colors " +
+              (showCompliant
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border text-muted-foreground hover:bg-muted")
+            }
+          >
+            {showCompliant ? "Hide" : "Show"} {compliantCount} compliant clause
+            {compliantCount !== 1 ? "s" : ""}
           </button>
         )}
       </div>

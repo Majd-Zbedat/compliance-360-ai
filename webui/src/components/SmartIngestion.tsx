@@ -24,6 +24,7 @@ const CONTRACT_TYPES = [
   { value: "NDA", label: "Non-Disclosure Agreement (NDA)" },
   { value: "Vendor / SaaS", label: "Vendor / SaaS Agreement" },
   { value: "Banking / Financial", label: "Banking / Financial Services" },
+  { value: "Cybersecurity Services", label: "Cybersecurity Services Agreement" },
   { value: "Employment", label: "Employment / HR" },
   { value: "Other", label: "Other" },
 ];

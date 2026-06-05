@@ -243,7 +243,8 @@ def _parse_two_column_parties(block_text: str) -> tuple[dict, dict]:
       LEI: 213800RRJKXB7OX1YK43 ABN: 11 005 357 522 | LEI: HB7FFAZI0OMZ8PP8OE15
     """
     empty: dict[str, Optional[str]] = {
-        "name": None, "address": None, "regulated_by": None, "lei": None, "abn": None
+        "name": None, "address": None, "regulated_by": None,
+        "registration": None, "lei": None, "abn": None,
     }
     party_a: dict[str, Optional[str]] = dict(empty)
     party_b: dict[str, Optional[str]] = dict(empty)
@@ -287,7 +288,8 @@ def _parse_two_column_parties(block_text: str) -> tuple[dict, dict]:
                 party_a["address"] = line
             continue
 
-        # ── Regulated by ──────────────────────────────────────────────────
+        # ── Regulated by / certifications ─────────────────────────────────
+        _CERT_RE = r"(?:SOC\s*2|ISO\s*\d{4,5}|PCI[\s-]?DSS|HIPAA|Certified|Accredited)"
         if re.search(r"Regulated\s+by", line, re.IGNORECASE):
             # Two "Regulated by" clauses may appear on the same line separated by a space
             dual_m = re.search(
@@ -300,13 +302,35 @@ def _parse_two_column_parties(block_text: str) -> tuple[dict, dict]:
             else:
                 single_m = re.search(r"Regulated\s+by[:\s]+(.+)", line, re.IGNORECASE)
                 if single_m:
-                    target = party_a if party_a["regulated_by"] is None else party_b
-                    target["regulated_by"] = single_m.group(1).strip()
+                    captured = single_m.group(1).strip()
+                    # Party B's column may follow with certifications (no "Regulated by"
+                    # prefix), e.g. "...FDIC SOC 2 Type II Certified, ISO 27001 Accredited"
+                    cert_split = re.search(rf"\s+({_CERT_RE}\b.*)$", captured, re.IGNORECASE)
+                    if cert_split and party_a["regulated_by"] is None:
+                        party_a["regulated_by"] = captured[: cert_split.start()].strip()
+                        party_b["regulated_by"] = cert_split.group(1).strip()
+                    else:
+                        target = party_a if party_a["regulated_by"] is None else party_b
+                        target["regulated_by"] = captured
             continue
 
-        # ── LEI / ABN ─────────────────────────────────────────────────────
+        # Certification-only line (Party B has no "Regulated by" keyword)
+        if (
+            party_b["regulated_by"] is None
+            and re.search(rf"\b{_CERT_RE}\b", line, re.IGNORECASE)
+            and not re.search(r"\bLEI\b|\bABN\b|Registration", line, re.IGNORECASE)
+        ):
+            target = party_a if party_a["regulated_by"] is None else party_b
+            target["regulated_by"] = line.strip()
+            continue
+
+        # ── LEI / ABN / Registration ──────────────────────────────────────
         lei_hits = list(re.finditer(r"\bLEI[:\s]+([A-Z0-9]{18,20})", line, re.IGNORECASE))
         abn_hit = re.search(r"\bABN[:\s]+([\d\s]{9,14})", line, re.IGNORECASE)
+        reg_hit = re.search(
+            r"(?:Registration|Reg\.?|Company)\s*(?:No\.?|Number|#)[:\s]+([A-Z0-9\-/]{4,})",
+            line, re.IGNORECASE,
+        )
         if lei_hits:
             if party_a["lei"] is None:
                 party_a["lei"] = lei_hits[0].group(1)
@@ -314,6 +338,14 @@ def _parse_two_column_parties(block_text: str) -> tuple[dict, dict]:
                 party_b["lei"] = lei_hits[1].group(1)
         if abn_hit and party_b["abn"] is None:
             party_b["abn"] = abn_hit.group(1).strip()
+        if reg_hit:
+            # Registration usually sits in Party B's column when Party A already has an LEI
+            if lei_hits and party_b["registration"] is None:
+                party_b["registration"] = reg_hit.group(1).strip()
+            elif party_a["registration"] is None:
+                party_a["registration"] = reg_hit.group(1).strip()
+            else:
+                party_b["registration"] = reg_hit.group(1).strip()
 
     return party_a, party_b
 
@@ -322,7 +354,10 @@ def _extract_party_block(combined: str, section_re: str) -> dict[str, Optional[s
     """Single-column party block extraction (fallback for non-two-column formats)."""
     start_m = re.search(rf"(?:{section_re})", combined, re.IGNORECASE)
     if not start_m:
-        return {"name": None, "address": None, "regulated_by": None, "lei": None, "abn": None}
+        return {
+            "name": None, "address": None, "regulated_by": None,
+            "registration": None, "lei": None, "abn": None,
+        }
 
     next_section = re.search(
         r"\n(?:PARTY\s+[AB]\b|ARTICLE\s+\d|SECTION\s+\d|\d+\.\s+[A-Z])",
@@ -355,6 +390,28 @@ def _extract_party_block(combined: str, section_re: str) -> dict[str, Optional[s
         if m:
             regulated_by = m.group(1).strip()
             break
+    # Fallback: service providers often list certifications/accreditations
+    # (e.g. "SOC 2 Type II Certified, ISO 27001 Accredited") instead of a regulator.
+    if regulated_by is None:
+        for line in lines:
+            if re.search(
+                r"\b(SOC\s*2|ISO\s*\d{4,5}|Certified|Accredited|PCI[\s-]?DSS|HIPAA)\b",
+                line,
+                re.IGNORECASE,
+            ) and len(line) <= 140:
+                regulated_by = line.strip()
+                break
+
+    registration: Optional[str] = None
+    for line in lines:
+        m = re.search(
+            r"(?:Registration|Reg\.?|Company)\s*(?:No\.?|Number|#)[:\s]+([A-Z0-9\-/]{4,})",
+            line,
+            re.IGNORECASE,
+        )
+        if m:
+            registration = m.group(1).strip()
+            break
 
     lei: Optional[str] = None
     for line in lines:
@@ -370,7 +427,14 @@ def _extract_party_block(combined: str, section_re: str) -> dict[str, Optional[s
             abn = m.group(1).strip()
             break
 
-    return {"name": name, "address": address, "regulated_by": regulated_by, "lei": lei, "abn": abn}
+    return {
+        "name": name,
+        "address": address,
+        "regulated_by": regulated_by,
+        "registration": registration,
+        "lei": lei,
+        "abn": abn,
+    }
 
 
 # Cover-page label synonyms → canonical field. Longest / most specific labels
@@ -397,9 +461,11 @@ _BAD_VALUES = {
 def _scan_kv_table(text: str) -> dict[str, str]:
     """Parse a cover-page key/value table.
 
-    Handles single-column ("Label  Value") and two-column ("Label1 Value1 Label2
-    Value2") rows by locating every known label on a line and taking each value
-    as the text between consecutive labels.
+    Handles three formats:
+      1. Same-line: "Contract ID DEMO-2026-001 Effective Date January 1, 2026"
+      2. Two-row:   "Contract ID   Effective Date"  (labels)
+                    "DEMO-2026-001  January 1, 2026"  (values on next line)
+      3. "Label: value" colon-separated blocks
     """
     found: dict[str, str] = {}
     label_to_field: dict[str, str] = {}
@@ -410,23 +476,64 @@ def _scan_kv_table(text: str) -> dict[str, str]:
             alts.append(re.escape(lab))
     label_re = re.compile(r"(?<![A-Za-z])(" + "|".join(alts) + r")(?![A-Za-z])", re.IGNORECASE)
 
-    for line in text.splitlines():
+    def _store(field: str, raw_value: str) -> None:
+        if field in found:
+            return
+        v = re.sub(r"^[\s:|\-–—]+", "", raw_value).strip()
+        v = v.split("  ")[0].strip()
+        if not v or v.lower() in _BAD_VALUES or len(v) > 80:
+            return
+        found[field] = v
+
+    lines = text.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i]
         matches = list(label_re.finditer(line))
         if not matches:
+            i += 1
             continue
-        for i, m in enumerate(matches):
-            field = label_to_field.get(m.group(1).lower())
-            if not field or field in found:
-                continue
-            end = matches[i + 1].start() if i + 1 < len(matches) else len(line)
-            value = line[m.end():end]
-            value = re.sub(r"^[\s:|\-–—]+", "", value).strip()
-            value = value.split("  ")[0].strip()  # drop trailing column if collapsed
-            if not value or value.lower() in _BAD_VALUES:
-                continue
-            if len(value) > 80:
-                value = value[:80].rstrip()
-            found[field] = value
+
+        # Check if any label has an inline value (non-empty text between labels)
+        has_inline_values = False
+        for j, m in enumerate(matches):
+            end = matches[j + 1].start() if j + 1 < len(matches) else len(line)
+            val = re.sub(r"^[\s:|\-–—]+", "", line[m.end():end]).strip().split("  ")[0].strip()
+            if val and val.lower() not in _BAD_VALUES and len(val) > 2:
+                has_inline_values = True
+                break
+
+        if has_inline_values:
+            # Format 1: labels and values on same line
+            for j, m in enumerate(matches):
+                field = label_to_field.get(m.group(1).lower())
+                if not field:
+                    continue
+                end = matches[j + 1].start() if j + 1 < len(matches) else len(line)
+                _store(field, line[m.end():end])
+        else:
+            # Format 2: labels-only line — look at next non-empty line for values
+            next_i = i + 1
+            while next_i < len(lines) and not lines[next_i].strip():
+                next_i += 1
+            if next_i < len(lines):
+                next_line = lines[next_i]
+                # Only use next line if it doesn't itself contain labels
+                if not label_re.search(next_line):
+                    for j, m in enumerate(matches):
+                        field = label_to_field.get(m.group(1).lower())
+                        if not field:
+                            continue
+                        col_start = m.start()
+                        col_end = matches[j + 1].start() if j + 1 < len(matches) else len(next_line) + 100
+                        if col_start < len(next_line):
+                            value = next_line[col_start:min(col_end, len(next_line))].strip()
+                        else:
+                            # position-based failed; fall back to splitting on 3+ spaces
+                            parts = re.split(r"\s{3,}|\t", next_line.strip())
+                            value = parts[j] if j < len(parts) else ""
+                        _store(field, value)
+        i += 1
     return found
 
 
@@ -444,14 +551,21 @@ def parse_contract_metadata(clauses: list[dict[str, Any]]) -> dict[str, Optional
     if not combined:
         combined = "\n".join(str(c.get("text") or "") for c in clauses)
 
-    # 1) Cover-table parse takes priority. Only scan the dedicated Document
-    #    Header clause — running the KV scanner over body prose / table headers
-    #    produces false positives (e.g. "Status" → "Risk Compliance").
+    # 1) Cover-table parse takes priority. Prefer the dedicated Document Header
+    #    clause; if missing or empty, scan the first few clauses until we get hits.
     header_text = next(
         (str(c.get("text") or "") for c in clauses if "header" in str(c.get("section") or "").lower()),
         "",
     )
     kv = _scan_kv_table(header_text) if header_text else {}
+    if not any(kv.values()):
+        # Widen scan to first 6 clauses (covers contracts with no explicit header clause)
+        for c in clauses[:6]:
+            clause_text = str(c.get("text") or "")
+            if clause_text:
+                for k, v in _scan_kv_table(clause_text).items():
+                    if k not in kv:
+                        kv[k] = v
 
     contract_number = kv.get("contract_number")
     effective_date = kv.get("effective_date")
@@ -532,11 +646,13 @@ def parse_contract_metadata(clauses: list[dict[str, Any]]) -> dict[str, Optional
         "party_a": party_a_info["name"],
         "party_a_address": party_a_info["address"],
         "party_a_regulated_by": party_a_info["regulated_by"],
+        "party_a_registration": party_a_info.get("registration"),
         "party_a_lei": party_a_info["lei"],
         # Party B
         "party_b": party_b_info["name"],
         "party_b_address": party_b_info["address"],
         "party_b_regulated_by": party_b_info["regulated_by"],
+        "party_b_registration": party_b_info.get("registration"),
         "party_b_lei": party_b_info["lei"],
         "party_b_abn": party_b_info["abn"],
         # kept for backward compat

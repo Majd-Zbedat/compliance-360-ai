@@ -9,20 +9,12 @@ import {
   ChevronDown,
   FileText,
   LayoutDashboard,
-  MessageSquare,
   Search,
   Settings,
   ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { FloatingChatWidget } from "@/components/FloatingChatWidget";
 
 const navItems = [
   { href: "/", label: "Dashboard", icon: LayoutDashboard },
@@ -115,7 +107,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               SC
             </div>
             <div className="min-w-0">
-              <p className="truncate text-xs font-semibold text-white">Sarah Chen</p>
+              <p className="truncate text-xs font-semibold text-white">Majd Zubeidat</p>
               <p className="truncate text-[10px] text-white/50">Chief Compliance Officer</p>
             </div>
           </div>
@@ -133,51 +125,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <button type="button" className="rounded-md p-2 text-muted-foreground hover:bg-muted">
               <Search className="h-4 w-4" />
             </button>
-            <AssistantSheet />
             <button type="button" className="relative rounded-md p-2 text-muted-foreground hover:bg-muted">
               <Bell className="h-4 w-4" />
               <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-red-500" />
             </button>
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-xs font-semibold text-white">
-              SC
+              MZ
             </div>
           </div>
         </header>
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
+
+      {/* Floating AI chat — accessible from every page */}
+      <FloatingChatWidget />
     </div>
   );
 }
 
-function AssistantSheet() {
-  return (
-    <Sheet>
-      <SheetTrigger>
-        <button
-          type="button"
-          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
-          aria-label="Open compliance assistant"
-        >
-          <MessageSquare className="h-4 w-4" />
-        </button>
-      </SheetTrigger>
-      <SheetContent>
-        <SheetHeader>
-          <SheetTitle>Compliance assistant</SheetTitle>
-          <SheetDescription>
-            Local Ollama chat sidebar (wire your model in a follow-up turn).
-          </SheetDescription>
-        </SheetHeader>
-        <div className="space-y-3 text-sm">
-          <div className="rounded-lg border border-border bg-muted/40 p-3">
-            <div className="font-medium">System</div>
-            <p className="mt-1 text-muted-foreground">
-              I can answer questions about the regulatory corpus and surface relevant clauses, but I
-              do <em>not</em> provide unqualified legal advice.
-            </p>
-          </div>
-        </div>
-      </SheetContent>
-    </Sheet>
-  );
-}

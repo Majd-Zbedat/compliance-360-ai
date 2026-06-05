@@ -117,6 +117,7 @@ function PartyCard({
   name,
   address,
   regulatedBy,
+  registration,
   lei,
   abn,
 }: {
@@ -124,6 +125,7 @@ function PartyCard({
   name?: string | null;
   address?: string | null;
   regulatedBy?: string | null;
+  registration?: string | null;
   lei?: string | null;
   abn?: string | null;
 }) {
@@ -143,6 +145,11 @@ function PartyCard({
       {regulatedBy && (
         <p className="text-[11px] text-muted-foreground">
           <span className="font-medium">Regulated by:</span> {regulatedBy}
+        </p>
+      )}
+      {registration && (
+        <p className="text-[11px] text-muted-foreground">
+          <span className="font-medium">Registration No.:</span> {registration}
         </p>
       )}
       <div className="flex flex-wrap gap-x-4 gap-y-0.5">
@@ -168,7 +175,12 @@ export function ComplianceReportCard({ audit }: { audit: AuditDetail }) {
   const review = audit.status === "Review";
   const theme = riskTheme(audit.overall_risk);
 
-  const sortedFindings = [...audit.findings].sort(
+  // Only surface actual compliance gaps (High / Medium). Low-risk clauses are
+  // compliant/operational and are summarised separately rather than listed.
+  const gapFindings = audit.findings.filter(
+    (f) => f.risk === "High" || f.risk === "Medium",
+  );
+  const sortedFindings = [...gapFindings].sort(
     (a, b) => (RISK_ORDER[a.risk] ?? 9) - (RISK_ORDER[b.risk] ?? 9),
   );
 
@@ -203,7 +215,8 @@ export function ComplianceReportCard({ audit }: { audit: AuditDetail }) {
       meta.status ||
       meta.contract_manager ||
       meta.payment_terms ||
-      meta.jurisdiction);
+      meta.jurisdiction ||
+      meta.governing_law);
 
   const hasParties = meta && (meta.party_a || meta.party_b);
 
@@ -274,6 +287,9 @@ export function ComplianceReportCard({ audit }: { audit: AuditDetail }) {
                   value={audit.jurisdiction || meta?.jurisdiction || ""}
                 />
               )}
+              {meta?.governing_law && meta.governing_law !== (audit.jurisdiction || meta?.jurisdiction) && (
+                <Cell label="Governing law" value={meta.governing_law} />
+              )}
             </div>
           </div>
         )}
@@ -290,6 +306,7 @@ export function ComplianceReportCard({ audit }: { audit: AuditDetail }) {
                 name={meta?.party_a}
                 address={meta?.party_a_address}
                 regulatedBy={meta?.party_a_regulated_by}
+                registration={meta?.party_a_registration}
                 lei={meta?.party_a_lei}
               />
               <PartyCard
@@ -297,6 +314,7 @@ export function ComplianceReportCard({ audit }: { audit: AuditDetail }) {
                 name={meta?.party_b}
                 address={meta?.party_b_address}
                 regulatedBy={meta?.party_b_regulated_by}
+                registration={meta?.party_b_registration}
                 lei={meta?.party_b_lei}
                 abn={meta?.party_b_abn}
               />
@@ -306,7 +324,13 @@ export function ComplianceReportCard({ audit }: { audit: AuditDetail }) {
 
         {/* Summary counts */}
         <div className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-          <MiniMeta label="Findings" value={`${audit.findings.length} (${high} High · ${medium} Medium · ${low} Low)`} />
+          <MiniMeta
+            label="Gaps"
+            value={`${high + medium} (${high} High · ${medium} Medium)`}
+          />
+          {low > 0 && (
+            <MiniMeta label="Compliant clauses" value={`${low}`} />
+          )}
           {avgConfidence != null && (
             <MiniMeta label="Avg. confidence" value={`${avgConfidence}%`} />
           )}
@@ -354,8 +378,9 @@ export function ComplianceReportCard({ audit }: { audit: AuditDetail }) {
                 <>No clause-level findings were generated for this contract.</>
               ) : (
                 <>
-                  {audit.findings.length} finding{audit.findings.length !== 1 ? "s" : ""} —{" "}
-                  <strong>{high} High</strong>, {medium} Medium, {low} Low. Overall risk is{" "}
+                  <strong>{high + medium} compliance gap{high + medium !== 1 ? "s" : ""}</strong>{" "}
+                  ({high} High, {medium} Medium) across {audit.findings.length} analysed clause
+                  {audit.findings.length !== 1 ? "s" : ""}; {low} compliant. Overall risk is{" "}
                   <strong>{audit.overall_risk}</strong>
                   {high > 0
                     ? ". Address the High-risk clauses before signing."
