@@ -101,14 +101,13 @@ _RED_FLAGS: dict[str, tuple[re.Pattern[str], str, str]] = {
         "Vague language ('timely manner', 'promptly') does not satisfy this mandatory deadline.",
         "High",
     ),
-    # Liability cap without explicit carve-out for gross negligence / wilful misconduct
+    # Liability cap without explicit carve-out for gross negligence / wilful misconduct.
+    # The carve-out exemption is handled in _rule_based (see has_gross_negligence_carveout).
     "liability_cap_no_gross_negligence_carveout": (
         re.compile(
             r"(liability|aggregate\s+liability|total\s+liability)[^.]{0,120}"
-            r"(shall\s+not\s+exceed|is\s+capped|capped\s+at|limited\s+to)[^.]{0,120}"
-            r"(?<!\s(except|excluding|other\s+than)\s[^.]{0,60}"
-            r"(gross\s+negligence|wilful\s+misconduct|fraud))",
-            re.IGNORECASE | re.DOTALL,
+            r"(shall\s+not\s+exceed|is\s+capped|capped\s+at|limited\s+to)",
+            re.IGNORECASE,
         ),
         "Regulatory best practice (OCC guidelines, NY UCC) requires liability caps to explicitly "
         "exclude gross negligence and wilful misconduct. The absence of such carve-out creates a "
@@ -132,10 +131,23 @@ def _rule_based(input: ReasoningInput) -> ReasoningOutput:
             re.IGNORECASE,
         )
     )
+    has_gross_negligence_carveout = bool(
+        re.search(
+            r"(except|excluding|other\s+than|save\s+for|shall\s+not\s+apply)"
+            r"[^.]{0,80}(gross\s+negligence|wil[l]?ful\s+misconduct|fraud)",
+            input.clause_text,
+            re.IGNORECASE,
+        )
+    )
 
     triggered: list[tuple[str, str, str]] = []
     for name, (pattern, reason, severity) in _RED_FLAGS.items():
         if name == "no_notice_termination" and has_notice_period:
+            continue
+        if (
+            name == "liability_cap_no_gross_negligence_carveout"
+            and has_gross_negligence_carveout
+        ):
             continue
         if pattern.search(input.clause_text):
             triggered.append((name, reason, severity))
