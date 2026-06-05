@@ -207,6 +207,76 @@ def _persist_success(
     )
 
 
+async def _run_langgraph_direct(
+    *,
+    req: AuditCreateRequest,
+    audit_id: str,
+    contract_id: str,
+    now: datetime,
+    clauses: list[dict[str, Any]],
+) -> PipelineResult:
+    """Call LangGraph directly with pre-extracted clauses (n8n fallback path)."""
+    async with httpx.AsyncClient(timeout=settings.request_timeout_s) as client:
+        agent = await _post(
+            client,
+            settings.langgraph_agent_service_url.rstrip("/") + "/agent/run",
+            {
+                "audit_id": audit_id,
+                "contract_id": contract_id,
+                "clauses": clauses,
+                "jurisdiction": req.jurisdiction,
+                "contract_type": req.contract_type,
+            },
+        )
+
+    findings_raw = agent.get("findings") or []
+    overall_risk = str(agent.get("overall_risk") or "Unknown")
+    report_md = agent.get("report_markdown") or ""
+
+    findings_out = [
+        _normalize_finding(f, clauses) for f in findings_raw if isinstance(f, dict)
+    ]
+
+    with session_scope() as s:
+        row = AuditRow(
+            id=audit_id,
+            filename=req.filename,
+            status="Done",
+            overall_risk=overall_risk,
+            parties=req.parties or [],
+            jurisdiction=req.jurisdiction,
+            contract_type=req.contract_type,
+            requester=req.requester,
+            clauses=clauses,
+            findings=findings_out,
+            report_markdown=report_md,
+            safe_report_markdown=report_md,
+            input_guardrail_passed=True,
+            output_guardrail_passed=True,
+            rejection_reason=None,
+            created_at=now,
+            updated_at=datetime.utcnow(),
+        )
+        s.add(row)
+
+    await sync_audit_to_rag(
+        audit_id,
+        req.filename,
+        clauses,
+        findings_out,
+        parties=req.parties,
+        jurisdiction=req.jurisdiction,
+        overall_risk=overall_risk,
+    )
+
+    return PipelineResult(
+        audit_id=audit_id,
+        status="Done",
+        overall_risk=overall_risk,
+        rejected=False,
+    )
+
+
 async def run_n8n_pipeline(req: AuditCreateRequest) -> PipelineResult:
     webhook_url = (settings.n8n_webhook_url or "").strip()
     if not webhook_url:
@@ -336,11 +406,18 @@ async def run_n8n_pipeline(req: AuditCreateRequest) -> PipelineResult:
         report = _normalize_report(data.get("report"))
 
         # If n8n returned 0 findings but we have extracted clauses, the AI agent
-        # likely failed mid-run (e.g. Gemini 503). Fall back to the Python pipeline
-        # which calls LangGraph directly without needing an LLM orchestrator.
+        # likely failed mid-run (e.g. Gemini 503 or langgraph_agent tool timeout).
+        # Call LangGraph directly with the already-extracted clauses — no need to
+        # re-run doc-analyzer or re-send to n8n.
         n8n_findings = report.get("findings") or []
         if not n8n_findings and clauses and settings.n8n_fallback_to_python:
-            return await run_pipeline(req)
+            return await _run_langgraph_direct(
+                req=req,
+                audit_id=audit_id,
+                contract_id=contract_id,
+                now=now,
+                clauses=clauses,
+            )
 
         result = _persist_success(
             audit_id=audit_id,
