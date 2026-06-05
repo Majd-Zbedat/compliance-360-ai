@@ -88,6 +88,33 @@ _RED_FLAGS: dict[str, tuple[re.Pattern[str], str, str]] = {
         "Overly broad data use conflicts with GDPR Art. 5(1)(c) data minimisation.",
         "Medium",
     ),
+    # Breach notification without a specific hour/day deadline violates GDPR Art. 33
+    "vague_breach_notification": (
+        re.compile(
+            r"(notify|notification|inform|report)[^.]{0,80}"
+            r"(breach|incident|security\s+event)[^.]{0,80}"
+            r"(timely|promptly|as\s+soon\s+as\s+(reasonably\s+)?practicable|without\s+undue\s+delay)"
+            r"(?![^.]{0,60}\b(72|48|24|within\s+\d+)\s*(hour|day|hr))",
+            re.IGNORECASE,
+        ),
+        "GDPR Art. 33 mandates breach notification to supervisory authorities within 72 hours. "
+        "Vague language ('timely manner', 'promptly') does not satisfy this mandatory deadline.",
+        "High",
+    ),
+    # Liability cap without explicit carve-out for gross negligence / wilful misconduct
+    "liability_cap_no_gross_negligence_carveout": (
+        re.compile(
+            r"(liability|aggregate\s+liability|total\s+liability)[^.]{0,120}"
+            r"(shall\s+not\s+exceed|is\s+capped|capped\s+at|limited\s+to)[^.]{0,120}"
+            r"(?<!\s(except|excluding|other\s+than)\s[^.]{0,60}"
+            r"(gross\s+negligence|wilful\s+misconduct|fraud))",
+            re.IGNORECASE | re.DOTALL,
+        ),
+        "Regulatory best practice (OCC guidelines, NY UCC) requires liability caps to explicitly "
+        "exclude gross negligence and wilful misconduct. The absence of such carve-out creates a "
+        "medium compliance risk.",
+        "Medium",
+    ),
 }
 
 
@@ -157,12 +184,13 @@ def _rule_based(input: ReasoningInput) -> ReasoningOutput:
 
     return ReasoningOutput(
         verdict="ambiguous",
-        risk="Medium",
+        risk="Low",
         justification=(
             f"Closest retrieval ({matched_src} {matched_art}) only weakly matches "
-            f"(similarity {score:.2f}); reviewer should validate."
+            f"(similarity {score:.2f}); no critical red-flag patterns detected. "
+            f"Clause appears operationally standard; reviewer may validate."
         ),
-        confidence=0.4,
+        confidence=0.35,
         matched_id=matched_id,
         matched_source=matched_src,
         matched_article=matched_art,
