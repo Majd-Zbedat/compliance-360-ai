@@ -334,6 +334,14 @@ async def run_n8n_pipeline(req: AuditCreateRequest) -> PipelineResult:
             )
 
         report = _normalize_report(data.get("report"))
+
+        # If n8n returned 0 findings but we have extracted clauses, the AI agent
+        # likely failed mid-run (e.g. Gemini 503). Fall back to the Python pipeline
+        # which calls LangGraph directly without needing an LLM orchestrator.
+        n8n_findings = report.get("findings") or []
+        if not n8n_findings and clauses and settings.n8n_fallback_to_python:
+            return await run_pipeline(req)
+
         result = _persist_success(
             audit_id=audit_id,
             req=req,
